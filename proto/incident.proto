@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package agent_connector.v1;
+
+// Shared log level for synthetic incident entries.
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  DEBUG = 1;
+  INFO = 2;
+  WARN = 3;
+  ERROR = 4;
+  FATAL = 5;
+}
+
+message LogEntry {
+  string timestamp = 1; // ISO-8601
+  string service = 2;
+  LogLevel level = 3;
+  string message = 4;
+  map<string, string> metadata = 5;
+}
+
+// Single request shape for all three agents (fair protocol comparison).
+message IncidentRequest {
+  string incident_id = 1;
+  string scenario = 2; // e.g. "db_connection_failure"
+  repeated LogEntry logs = 3;
+}
+
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  OK = 1;
+  PARTIAL = 2;
+  FAILED = 3;
+  TIMEOUT = 4;
+  INVALID_ARGUMENT = 5;
+  UNAVAILABLE = 6;
+}
+
+message EvidenceItem {
+  string service = 1;
+  string summary = 2;
+  int32 count = 3; // e.g. repeated error count
+  string sample_message = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Severity Agent — unary only
+// ---------------------------------------------------------------------------
+
+enum SeverityLevel {
+  SEVERITY_LEVEL_UNSPECIFIED = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+  CRITICAL = 4;
+}
+
+message SeverityResponse {
+  SeverityLevel level = 1;
+  int32 score = 2; // 0–100 from deterministic rules
+  repeated EvidenceItem evidence = 3;
+  string rationale = 4;
+  AgentStatus status = 5;
+  string error_message = 6; // set when status != OK
+}
+
+service SeverityService {
+  rpc AnalyzeSeverity(IncidentRequest) returns (SeverityResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Runbook Agent — unary only
+// ---------------------------------------------------------------------------
+
+message RunbookStep {
+  int32 order = 1;
+  string action = 2;
+  string detail = 3;
+}
+
+message RunbookMatch {
+  string runbook_id = 1;
+  string title = 2;
+  float confidence = 3; // keyword/rule score 0–1
+  repeated string matched_terms = 4;
+  repeated RunbookStep steps = 5;
+}
+
+message RunbookResponse {
+  repeated RunbookMatch recommendations = 1;
+  AgentStatus status = 2;
+  string error_message = 3;
+}
+
+service RunbookService {
+  rpc RecommendActions(IncidentRequest) returns (RunbookResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Log Analysis Agent — unary + server streaming
+// ---------------------------------------------------------------------------
+
+enum LogAnalysisEventType {
+  LOG_ANALYSIS_EVENT_TYPE_UNSPECIFIED = 0;
+  STARTED = 1;
+  EVIDENCE_FOUND = 2;
+  LLM_SUMMARY = 3;
+  COMPLETED = 4;
+  ERROR = 5;
+}
+
+message LogAnalysisResult {
+  repeated EvidenceItem evidence = 1;
+  string summary = 2; // LLM or stub
+  string likely_cause = 3;
+  AgentStatus status = 4;
+  string error_message = 5;
+}
+
+message LogAnalysisEvent {
+  LogAnalysisEventType type = 1;
+  string message = 2; // human-readable progress line for CLI
+  EvidenceItem evidence = 3; // set on EVIDENCE_FOUND
+  LogAnalysisResult result = 4; // set on LLM_SUMMARY / COMPLETED
+  string error_message = 5; // set on ERROR
+}
+
+service LogAnalysisService {
+  // Fair protocol comparison (matches HTTP POST body/response).
+  rpc AnalyzeLogs(IncidentRequest) returns (LogAnalysisResult);
+
+  // gRPC-only demo + streaming evaluation.
+  rpc AnalyzeLogsStream(IncidentRequest) returns (stream LogAnalysisEvent);
+}

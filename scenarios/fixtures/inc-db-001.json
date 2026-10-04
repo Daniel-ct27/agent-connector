@@ -1,0 +1,68 @@
+{
+  "incident_id": "inc-db-001",
+  "scenario": "db_connection_failure",
+  "logs": [
+    {
+      "timestamp": "2026-03-15T14:02:01Z",
+      "service": "api-gateway",
+      "level": "ERROR",
+      "message": "upstream request failed: connection refused to checkout-service:8080",
+      "metadata": {
+        "request_id": "req-1001",
+        "route": "/checkout"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T14:02:02Z",
+      "service": "checkout-service",
+      "level": "ERROR",
+      "message": "failed to open database connection: dial tcp 10.0.2.15:5432: i/o timeout",
+      "metadata": {
+        "db_host": "10.0.2.15",
+        "db_name": "orders"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T14:02:03Z",
+      "service": "checkout-service",
+      "level": "ERROR",
+      "message": "failed to open database connection: dial tcp 10.0.2.15:5432: i/o timeout",
+      "metadata": {
+        "db_host": "10.0.2.15",
+        "db_name": "orders",
+        "attempt": "2"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T14:02:05Z",
+      "service": "orders-db",
+      "level": "FATAL",
+      "message": "could not accept connections: too many clients already",
+      "metadata": {
+        "active_connections": "200",
+        "max_connections": "200"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T14:02:06Z",
+      "service": "api-gateway",
+      "level": "WARN",
+      "message": "returning 503 for /checkout after upstream timeout",
+      "metadata": {
+        "request_id": "req-1001",
+        "status": "503"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T14:02:08Z",
+      "service": "checkout-service",
+      "level": "ERROR",
+      "message": "failed to open database connection: dial tcp 10.0.2.15:5432: i/o timeout",
+      "metadata": {
+        "db_host": "10.0.2.15",
+        "db_name": "orders",
+        "attempt": "3"
+      }
+    }
+  ]
+}
