@@ -1,0 +1,65 @@
+{
+  "incident_id": "inc-cert-001",
+  "scenario": "expired_certificate",
+  "logs": [
+    {
+      "timestamp": "2026-03-15T16:20:01Z",
+      "service": "auth-service",
+      "level": "ERROR",
+      "message": "TLS handshake failed: certificate has expired",
+      "metadata": {
+        "peer": "user-service",
+        "not_after": "2026-03-01T00:00:00Z"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T16:20:02Z",
+      "service": "user-service",
+      "level": "ERROR",
+      "message": "secure connection failed: x509: certificate has expired or is not yet valid",
+      "metadata": {
+        "peer": "auth-service"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T16:20:04Z",
+      "service": "api-gateway",
+      "level": "ERROR",
+      "message": "authentication upstream error: certificate verify failed",
+      "metadata": {
+        "route": "/login",
+        "status": "502"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T16:20:06Z",
+      "service": "auth-service",
+      "level": "FATAL",
+      "message": "refusing new mTLS connections: server certificate expired",
+      "metadata": {
+        "cert_cn": "auth.internal",
+        "not_after": "2026-03-01T00:00:00Z"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T16:20:08Z",
+      "service": "user-service",
+      "level": "ERROR",
+      "message": "secure connection failed: x509: certificate has expired or is not yet valid",
+      "metadata": {
+        "peer": "auth-service",
+        "attempt": "2"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T16:20:10Z",
+      "service": "api-gateway",
+      "level": "WARN",
+      "message": "elevated 5xx rate on /login during auth outage",
+      "metadata": {
+        "route": "/login",
+        "error_rate": "0.92"
+      }
+    }
+  ]
+}

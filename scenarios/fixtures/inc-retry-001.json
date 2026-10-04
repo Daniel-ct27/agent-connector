@@ -1,0 +1,75 @@
+{
+  "incident_id": "inc-retry-001",
+  "scenario": "retry_storm",
+  "logs": [
+    {
+      "timestamp": "2026-03-15T15:10:00Z",
+      "service": "payment-service",
+      "level": "WARN",
+      "message": "payment provider timeout; scheduling retry 1/8",
+      "metadata": {
+        "provider": "card-gateway",
+        "attempt": "1"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:02Z",
+      "service": "payment-service",
+      "level": "WARN",
+      "message": "payment provider timeout; scheduling retry 2/8",
+      "metadata": {
+        "provider": "card-gateway",
+        "attempt": "2"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:05Z",
+      "service": "payment-service",
+      "level": "ERROR",
+      "message": "payment provider timeout; scheduling retry 3/8",
+      "metadata": {
+        "provider": "card-gateway",
+        "attempt": "3"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:08Z",
+      "service": "card-gateway",
+      "level": "ERROR",
+      "message": "rate limit exceeded: too many requests from payment-service",
+      "metadata": {
+        "client": "payment-service",
+        "limit": "100/min"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:10Z",
+      "service": "inventory-service",
+      "level": "ERROR",
+      "message": "reserve stock failed: downstream payment-service unavailable",
+      "metadata": {
+        "order_id": "ord-4421"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:12Z",
+      "service": "payment-service",
+      "level": "ERROR",
+      "message": "payment provider timeout; scheduling retry 6/8",
+      "metadata": {
+        "provider": "card-gateway",
+        "attempt": "6"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T15:10:15Z",
+      "service": "api-gateway",
+      "level": "ERROR",
+      "message": "checkout failed after retries exhausted for payment-service",
+      "metadata": {
+        "route": "/checkout",
+        "status": "502"
+      }
+    }
+  ]
+}

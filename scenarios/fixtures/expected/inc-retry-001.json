@@ -1,0 +1,41 @@
+{
+  "incident_id": "inc-retry-001",
+  "scenario": "retry_storm",
+  "severity": {
+    "level": "CRITICAL",
+    "score_min": 75,
+    "status": "OK",
+    "evidence_services": [
+      "api-gateway",
+      "card-gateway",
+      "inventory-service",
+      "payment-service"
+    ]
+  },
+  "runbook": {
+    "status": "OK",
+    "top_runbook_id": "rb-retry-storm",
+    "required_matched_terms_any": [
+      "retry",
+      "rate limit",
+      "timeout",
+      "retries exhausted"
+    ],
+    "min_recommendations": 1
+  },
+  "log_analysis": {
+    "status": "OK",
+    "likely_cause_contains_any": [
+      "retry",
+      "rate limit",
+      "payment"
+    ],
+    "evidence_services": ["payment-service", "card-gateway"],
+    "stream_event_order": [
+      "STARTED",
+      "EVIDENCE_FOUND",
+      "LLM_SUMMARY",
+      "COMPLETED"
+    ]
+  }
+}

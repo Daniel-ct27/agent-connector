@@ -1,0 +1,36 @@
+{
+  "incident_id": "inc-cert-001",
+  "scenario": "expired_certificate",
+  "severity": {
+    "level": "CRITICAL",
+    "score_min": 75,
+    "status": "OK",
+    "evidence_services": ["api-gateway", "auth-service", "user-service"]
+  },
+  "runbook": {
+    "status": "OK",
+    "top_runbook_id": "rb-expired-cert",
+    "required_matched_terms_any": [
+      "certificate",
+      "expired",
+      "tls",
+      "x509"
+    ],
+    "min_recommendations": 1
+  },
+  "log_analysis": {
+    "status": "OK",
+    "likely_cause_contains_any": [
+      "certificate",
+      "expired",
+      "tls"
+    ],
+    "evidence_services": ["auth-service", "user-service"],
+    "stream_event_order": [
+      "STARTED",
+      "EVIDENCE_FOUND",
+      "LLM_SUMMARY",
+      "COMPLETED"
+    ]
+  }
+}
