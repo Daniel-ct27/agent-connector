@@ -11,15 +11,12 @@ import grpc
 from agent_connector.agents.severity import analyze_severity
 from agent_connector.domain.models import IncidentRequest, SeverityResponse
 from agent_connector.domain.validation import (
-    MAX_LOG_ENTRIES,
     IncidentValidationError,
-    validate_incident_request,
 )
 from agent_connector.generated import incident_pb2 as pb
 from agent_connector.generated import incident_pb2_grpc as pb_grpc
-from agent_connector.grpc_services.limits import validate_grpc_request_size
+from agent_connector.grpc_services.requests import validated_incident_from_proto
 from agent_connector.protocol.protobuf import (
-    incident_request_from_proto,
     severity_response_to_proto,
 )
 
@@ -40,20 +37,9 @@ class SeverityGrpcService(pb_grpc.SeverityServiceServicer):
         context: grpc.aio.ServicerContext,
     ) -> pb.SeverityResponse:
         try:
-            validate_grpc_request_size(request)
-            if len(request.logs) > MAX_LOG_ENTRIES:
-                raise IncidentValidationError(
-                    f"logs must contain at most {MAX_LOG_ENTRIES} entries"
-                )
-            incident = incident_request_from_proto(request)
-            validate_incident_request(incident)
+            incident = validated_incident_from_proto(request)
         except IncidentValidationError as error:
             await self._abort_invalid(context, str(error))
-        except ValueError:
-            await self._abort_invalid(
-                context,
-                "request contains an invalid enum value",
-            )
 
         try:
             result = await asyncio.to_thread(self._analyzer, incident)
