@@ -15,8 +15,8 @@ from agent_connector.agents.severity import analyze_severity
 from agent_connector.domain.models import IncidentRequest, SeverityResponse
 from agent_connector.generated import incident_pb2 as pb
 from agent_connector.generated import incident_pb2_grpc as pb_grpc
+from agent_connector.config import MAX_GRPC_REQUEST_BYTES
 from agent_connector.grpc_services.lifecycle import ServerBindError, start_server
-from agent_connector.grpc_services.limits import MAX_GRPC_REQUEST_BYTES
 from agent_connector.grpc_services.severity import SeverityGrpcService
 from agent_connector.protocol.protobuf import (
     incident_request_to_proto,

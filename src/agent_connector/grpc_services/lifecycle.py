@@ -7,9 +7,10 @@ from dataclasses import dataclass
 
 import grpc
 
-
-DEFAULT_HOST = "127.0.0.1"
-SHUTDOWN_GRACE_SECONDS = 5.0
+from agent_connector.config import (
+    DEFAULT_GRPC_HOST,
+    GRPC_SHUTDOWN_GRACE_SECONDS,
+)
 
 
 class ServerBindError(RuntimeError):
@@ -28,14 +29,14 @@ class RunningServer:
     def target(self) -> str:
         return f"{self.host}:{self.port}"
 
-    async def stop(self, grace: float = SHUTDOWN_GRACE_SECONDS) -> None:
+    async def stop(self, grace: float = GRPC_SHUTDOWN_GRACE_SECONDS) -> None:
         await self.server.stop(grace)
 
 
 async def start_server(
     register: Callable[[grpc.aio.Server], None],
     *,
-    host: str = DEFAULT_HOST,
+    host: str = DEFAULT_GRPC_HOST,
     port: int,
 ) -> RunningServer:
     """Create, register, bind, and start one async gRPC server."""

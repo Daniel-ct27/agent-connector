@@ -17,8 +17,8 @@ from agent_connector.domain.models import (
     SeverityLevel,
     SeverityResponse,
 )
+from agent_connector.config import MAX_LOG_ENTRIES
 from agent_connector.domain.validation import (
-    MAX_LOG_ENTRIES,
     IncidentValidationError,
     validate_incident_request,
 )

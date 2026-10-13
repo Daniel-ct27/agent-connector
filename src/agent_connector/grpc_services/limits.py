@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from google.protobuf.message import Message
 
+from agent_connector.config import MAX_GRPC_REQUEST_BYTES
 from agent_connector.domain.validation import IncidentValidationError
-
-
-MAX_GRPC_REQUEST_BYTES = 3_932_160
 
 
 def validate_grpc_request_size(request: Message) -> None:

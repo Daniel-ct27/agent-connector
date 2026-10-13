@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
+from agent_connector.config import MAX_LOG_ENTRIES
 from agent_connector.domain.models import IncidentRequest
-
-
-MAX_LOG_ENTRIES = 5_000
 
 
 class IncidentValidationError(ValueError):
