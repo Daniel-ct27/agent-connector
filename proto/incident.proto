@@ -105,7 +105,7 @@ enum LogAnalysisEventType {
   LOG_ANALYSIS_EVENT_TYPE_UNSPECIFIED = 0;
   STARTED = 1;
   EVIDENCE_FOUND = 2;
-  LLM_SUMMARY = 3;
+  reserved 3; // formerly LLM_SUMMARY; do not reuse this wire value
   COMPLETED = 4;
   ERROR = 5;
 }
@@ -122,7 +122,7 @@ message LogAnalysisEvent {
   LogAnalysisEventType type = 1;
   string message = 2; // human-readable progress line for CLI
   EvidenceItem evidence = 3; // set on EVIDENCE_FOUND
-  LogAnalysisResult result = 4; // set on LLM_SUMMARY / COMPLETED
+  LogAnalysisResult result = 4; // set on COMPLETED
   string error_message = 5; // set on ERROR
 }
 

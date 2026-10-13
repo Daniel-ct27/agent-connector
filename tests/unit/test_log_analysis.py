@@ -108,3 +108,30 @@ def test_analyze_logs_stream_emits_error_for_invalid_request() -> None:
     assert events[0].type == LogAnalysisEventType.ERROR
     assert events[0].result is not None
     assert events[0].result.status == AgentStatus.INVALID_ARGUMENT
+
+
+def test_unknown_scenario_uses_log_derived_fallback() -> None:
+    request = IncidentRequest(
+        incident_id="inc-unknown",
+        scenario="unrecognized_scenario",
+        logs=[
+            LogEntry(
+                timestamp="2026-03-15T14:00:00Z",
+                service="search-service",
+                level=LogLevel.ERROR,
+                message="index shard unavailable",
+            ),
+            LogEntry(
+                timestamp="2026-03-15T14:00:01Z",
+                service="search-service",
+                level=LogLevel.ERROR,
+                message="index shard unavailable",
+            ),
+        ],
+    )
+
+    result = analyze_logs(request)
+
+    assert "search-service" in result.summary
+    assert "index shard unavailable" in result.summary
+    assert result.likely_cause == "repeated failures in search-service"

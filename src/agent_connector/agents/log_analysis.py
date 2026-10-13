@@ -22,7 +22,10 @@ from agent_connector.domain.models import (
 
 _ERROR_LIKE = {LogLevel.ERROR, LogLevel.FATAL}
 
-_SCENARIO_CAUSES = {
+# Stable outputs used only by the three protocol-comparison fixtures. This is
+# not the production analysis path; unknown scenarios use the log-derived
+# fallback below until a real analyzer provider replaces this stub.
+_FIXTURE_SUMMARIES = {
     "db_connection_failure": (
         "Repeated database connection timeouts and connection saturation on orders-db.",
         "database connection failure on orders-db",
@@ -80,18 +83,6 @@ def analyze_logs_stream(request: IncidentRequest) -> Iterator[LogAnalysisEvent]:
         )
 
     summary, likely_cause = stub_summarize(request, evidence)
-    partial = LogAnalysisResult(
-        evidence=evidence,
-        summary=summary,
-        likely_cause=likely_cause,
-        status=AgentStatus.OK,
-    )
-    yield LogAnalysisEvent(
-        type=LogAnalysisEventType.LLM_SUMMARY,
-        message="stub summary completed",
-        result=partial,
-    )
-
     completed = LogAnalysisResult(
         evidence=evidence,
         summary=summary,
@@ -152,9 +143,9 @@ def stub_summarize(
     request: IncidentRequest,
     evidence: list[EvidenceItem],
 ) -> tuple[str, str]:
-    """Deterministic substitute for the Stage 5 LLM call."""
-    if request.scenario in _SCENARIO_CAUSES:
-        return _SCENARIO_CAUSES[request.scenario]
+    """Deterministic protocol-test substitute for the future analyzer."""
+    if request.scenario in _FIXTURE_SUMMARIES:
+        return _FIXTURE_SUMMARIES[request.scenario]
 
     if not evidence:
         return (

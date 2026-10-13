@@ -29,7 +29,6 @@
     "stream_event_order": [
       "STARTED",
       "EVIDENCE_FOUND",
-      "LLM_SUMMARY",
       "COMPLETED"
     ]
   }

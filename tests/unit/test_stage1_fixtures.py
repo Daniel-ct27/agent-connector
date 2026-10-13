@@ -61,6 +61,5 @@ def test_expected_output_contract_shape(name: str) -> None:
     assert expected["log_analysis"]["stream_event_order"] == [
         "STARTED",
         "EVIDENCE_FOUND",
-        "LLM_SUMMARY",
         "COMPLETED",
     ]
