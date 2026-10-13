@@ -38,10 +38,11 @@ enum AgentStatus {
 }
 
 message EvidenceItem {
+  // One normalized error pattern observed in one service.
   string service = 1;
-  string summary = 2;
-  int32 count = 3; // e.g. repeated error count
-  string sample_message = 4;
+  string summary = 2; // normalized pattern
+  int32 count = 3; // logs matching this exact service and pattern
+  string sample_message = 4; // one original, unnormalized message
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +108,7 @@ enum LogAnalysisEventType {
   EVIDENCE_FOUND = 2;
   reserved 3; // formerly LLM_SUMMARY; do not reuse this wire value
   COMPLETED = 4;
-  ERROR = 5;
+  LOG_ANALYSIS_ERROR = 5;
 }
 
 message LogAnalysisResult {

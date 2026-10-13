@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-connector"
+version = "0.1.0"
+description = "Protocol comparison for a distributed incident-analysis agent system"
+requires-python = ">=3.11"
+dependencies = [
+    "grpcio>=1.81.1,<2",
+    "protobuf>=6.31.1,<7",
+    "pydantic>=2.12,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "grpcio-tools>=1.81.1,<1.82",
+    "pytest>=9,<10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

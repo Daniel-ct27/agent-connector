@@ -6,9 +6,9 @@ protocol-agnostic so gRPC can wrap it later.
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Iterator
 
+from agent_connector.agents.evidence import extract_evidence
 from agent_connector.domain.models import (
     AgentStatus,
     EvidenceItem,
@@ -16,11 +16,7 @@ from agent_connector.domain.models import (
     LogAnalysisEvent,
     LogAnalysisEventType,
     LogAnalysisResult,
-    LogEntry,
-    LogLevel,
 )
-
-_ERROR_LIKE = {LogLevel.ERROR, LogLevel.FATAL}
 
 # Stable outputs used only by the three protocol-comparison fixtures. This is
 # not the production analysis path; unknown scenarios use the log-derived
@@ -96,49 +92,6 @@ def analyze_logs_stream(request: IncidentRequest) -> Iterator[LogAnalysisEvent]:
     )
 
 
-def extract_evidence(logs: list[LogEntry]) -> list[EvidenceItem]:
-    """Reduce raw logs to repeated error-like evidence per service."""
-    counts: Counter[tuple[str, str]] = Counter()
-    samples: dict[tuple[str, str], str] = {}
-    service_totals: Counter[str] = Counter()
-
-    for entry in logs:
-        if entry.level not in _ERROR_LIKE:
-            continue
-        key = (entry.service, _normalize_message(entry.message))
-        counts[key] += 1
-        service_totals[entry.service] += 1
-        samples.setdefault(key, entry.message)
-
-    if not counts:
-        return []
-
-    # Keep the strongest pattern per service, ranked by frequency then FATAL-ish wording.
-    best_by_service: dict[str, tuple[int, str, str]] = {}
-    for (service, _normalized), count in counts.items():
-        sample = samples[(service, _normalized)]
-        current = best_by_service.get(service)
-        if current is None or count > current[0]:
-            best_by_service[service] = (count, sample, _normalized)
-
-    ranked_services = sorted(
-        best_by_service.items(),
-        key=lambda item: (-service_totals[item[0]], item[0]),
-    )
-
-    evidence: list[EvidenceItem] = []
-    for service, (count, sample, _) in ranked_services:
-        evidence.append(
-            EvidenceItem(
-                service=service,
-                summary=f"{count} repeated error-like event(s)",
-                count=count,
-                sample_message=sample,
-            )
-        )
-    return evidence
-
-
 def stub_summarize(
     request: IncidentRequest,
     evidence: list[EvidenceItem],
@@ -174,12 +127,3 @@ def _validate(request: IncidentRequest) -> LogAnalysisResult | None:
             error_message="logs must not be empty",
         )
     return None
-
-
-def _normalize_message(message: str) -> str:
-    text = message.lower().strip()
-    for token in ("attempt", "request_id", "ord-", "req-"):
-        if token in text:
-            # Drop trailing attempt/id noise for grouping.
-            text = text.split(token)[0].rstrip(" :;-")
-    return " ".join(text.split())

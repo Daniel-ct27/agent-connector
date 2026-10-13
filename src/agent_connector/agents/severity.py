@@ -8,13 +8,12 @@ Signals (from project spec):
 
 from __future__ import annotations
 
-from collections import Counter
 from datetime import datetime
 from math import log1p
 
+from agent_connector.agents.evidence import extract_evidence
 from agent_connector.domain.models import (
     AgentStatus,
-    EvidenceItem,
     IncidentRequest,
     LogEntry,
     LogLevel,
@@ -68,7 +67,7 @@ def analyze_severity(request: IncidentRequest) -> SeverityResponse:
         duration_seconds=duration_seconds,
     )
     level = _level_for_score(score)
-    evidence = _build_evidence(request.logs)
+    evidence = extract_evidence(request.logs)
     rationale = (
         f"score={score} from error_like={error_count}, fatal={fatal_count}, "
         f"services={len(affected_services)}, duration_s={duration_seconds:.1f}"
@@ -142,25 +141,3 @@ def _parse_timestamp(value: str) -> datetime | None:
         return datetime.fromisoformat(normalized)
     except ValueError:
         return None
-
-
-def _build_evidence(logs: list[LogEntry]) -> list[EvidenceItem]:
-    by_service: Counter[str] = Counter()
-    samples: dict[str, str] = {}
-    for entry in logs:
-        if entry.level not in _ERROR_LIKE:
-            continue
-        by_service[entry.service] += 1
-        samples.setdefault(entry.service, entry.message)
-
-    evidence: list[EvidenceItem] = []
-    for service, count in sorted(by_service.items()):
-        evidence.append(
-            EvidenceItem(
-                service=service,
-                summary=f"{count} error-like log(s)",
-                count=count,
-                sample_message=samples.get(service, ""),
-            )
-        )
-    return evidence

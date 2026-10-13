@@ -63,6 +63,12 @@ class IncidentRequest(BaseModel):
 
 
 class EvidenceItem(BaseModel):
+    """One normalized error pattern observed in one service.
+
+    ``count`` is the number of input logs matching the exact service-pattern
+    pair, while ``sample_message`` preserves one original message.
+    """
+
     service: str
     summary: str
     count: int = 0
