@@ -20,6 +20,10 @@ from agent_connector.domain.models import (
     SeverityLevel,
     SeverityResponse,
 )
+from agent_connector.domain.validation import (
+    IncidentValidationError,
+    validate_incident_request,
+)
 
 _ERROR_LIKE = {LogLevel.ERROR, LogLevel.FATAL}
 _FREQUENCY_WEIGHT = 50
@@ -43,15 +47,12 @@ _LEVEL_THRESHOLDS = (
 
 def analyze_severity(request: IncidentRequest) -> SeverityResponse:
     """Score an incident and return a SeverityResponse."""
-    if not request.incident_id.strip():
+    try:
+        validate_incident_request(request)
+    except IncidentValidationError as error:
         return SeverityResponse(
             status=AgentStatus.INVALID_ARGUMENT,
-            error_message="incident_id is required",
-        )
-    if not request.logs:
-        return SeverityResponse(
-            status=AgentStatus.INVALID_ARGUMENT,
-            error_message="logs must not be empty",
+            error_message=str(error),
         )
 
     error_logs = [entry for entry in request.logs if entry.level in _ERROR_LIKE]

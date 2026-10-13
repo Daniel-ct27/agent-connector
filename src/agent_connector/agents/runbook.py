@@ -10,20 +10,21 @@ from agent_connector.domain.models import (
     RunbookResponse,
     RunbookStep,
 )
+from agent_connector.domain.validation import (
+    IncidentValidationError,
+    validate_incident_request,
+)
 from agent_connector.runbooks.catalog import RUNBOOKS, RunbookDefinition
 
 
 def recommend_actions(request: IncidentRequest) -> RunbookResponse:
     """Match incident evidence to local runbook entries."""
-    if not request.incident_id.strip():
+    try:
+        validate_incident_request(request)
+    except IncidentValidationError as error:
         return RunbookResponse(
             status=AgentStatus.INVALID_ARGUMENT,
-            error_message="incident_id is required",
-        )
-    if not request.logs:
-        return RunbookResponse(
-            status=AgentStatus.INVALID_ARGUMENT,
-            error_message="logs must not be empty",
+            error_message=str(error),
         )
 
     matches: list[RunbookMatch] = []

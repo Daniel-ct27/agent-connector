@@ -17,6 +17,10 @@ from agent_connector.domain.models import (
     LogAnalysisEventType,
     LogAnalysisResult,
 )
+from agent_connector.domain.validation import (
+    IncidentValidationError,
+    validate_incident_request,
+)
 
 # Stable outputs used only by the three protocol-comparison fixtures. This is
 # not the production analysis path; unknown scenarios use the log-derived
@@ -116,14 +120,11 @@ def stub_summarize(
 
 
 def _validate(request: IncidentRequest) -> LogAnalysisResult | None:
-    if not request.incident_id.strip():
+    try:
+        validate_incident_request(request)
+    except IncidentValidationError as error:
         return LogAnalysisResult(
             status=AgentStatus.INVALID_ARGUMENT,
-            error_message="incident_id is required",
-        )
-    if not request.logs:
-        return LogAnalysisResult(
-            status=AgentStatus.INVALID_ARGUMENT,
-            error_message="logs must not be empty",
+            error_message=str(error),
         )
     return None

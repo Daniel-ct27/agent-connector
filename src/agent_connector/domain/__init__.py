@@ -17,6 +17,11 @@ from agent_connector.domain.models import (
     SeverityLevel,
     SeverityResponse,
 )
+from agent_connector.domain.validation import (
+    MAX_LOG_ENTRIES,
+    IncidentValidationError,
+    validate_incident_request,
+)
 
 __all__ = [
     "AgentOutcome",
@@ -34,4 +39,7 @@ __all__ = [
     "RunbookStep",
     "SeverityLevel",
     "SeverityResponse",
+    "MAX_LOG_ENTRIES",
+    "IncidentValidationError",
+    "validate_incident_request",
 ]
