@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 import logging
 
@@ -10,10 +9,9 @@ import grpc
 
 from agent_connector.agents.runbook import recommend_actions
 from agent_connector.domain.models import IncidentRequest, RunbookResponse
-from agent_connector.domain.validation import IncidentValidationError
 from agent_connector.generated import incident_pb2 as pb
 from agent_connector.generated import incident_pb2_grpc as pb_grpc
-from agent_connector.grpc_services.requests import validated_incident_from_proto
+from agent_connector.grpc_services.unary import execute_unary_agent
 from agent_connector.protocol.protobuf import runbook_response_to_proto
 
 
@@ -32,19 +30,11 @@ class RunbookGrpcService(pb_grpc.RunbookServiceServicer):
         request: pb.IncidentRequest,
         context: grpc.aio.ServicerContext,
     ) -> pb.RunbookResponse:
-        try:
-            incident = validated_incident_from_proto(request)
-        except IncidentValidationError as error:
-            LOGGER.info("Runbook request rejected: %s", error)
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(error))
-
-        try:
-            result = await asyncio.to_thread(self._analyzer, incident)
-        except Exception:
-            LOGGER.exception(
-                "unexpected Runbook Agent failure for incident %s",
-                incident.incident_id,
-            )
-            await context.abort(grpc.StatusCode.INTERNAL, "internal agent error")
-
-        return runbook_response_to_proto(result)
+        return await execute_unary_agent(
+            request,
+            context,
+            agent_name="Runbook Agent",
+            analyzer=self._analyzer,
+            response_to_proto=runbook_response_to_proto,
+            logger=LOGGER,
+        )
