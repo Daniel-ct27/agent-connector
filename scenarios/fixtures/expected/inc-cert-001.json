@@ -2,8 +2,8 @@
   "incident_id": "inc-cert-001",
   "scenario": "expired_certificate",
   "severity": {
-    "level": "CRITICAL",
-    "score_min": 75,
+    "level": "MEDIUM",
+    "score_min": 37,
     "status": "OK",
     "evidence_services": ["api-gateway", "auth-service", "user-service"]
   },

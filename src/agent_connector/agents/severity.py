@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
+from math import log1p
 
 from agent_connector.domain.models import (
     AgentStatus,
@@ -22,11 +23,15 @@ from agent_connector.domain.models import (
 )
 
 _ERROR_LIKE = {LogLevel.ERROR, LogLevel.FATAL}
-_LEVEL_POINTS = {
-    LogLevel.WARN: 2,
-    LogLevel.ERROR: 8,
-    LogLevel.FATAL: 20,
-}
+_FREQUENCY_WEIGHT = 50
+_BREADTH_WEIGHT = 25
+_DURATION_WEIGHT = 15
+_FATAL_WEIGHT = 10
+
+_FREQUENCY_SATURATION_COUNT = 100
+_BREADTH_SATURATION_SERVICES = 5
+_DURATION_SATURATION_SECONDS = 300
+_FATAL_SATURATION_COUNT = 2
 
 # Score → level thresholds (inclusive lower bounds).
 _LEVEL_THRESHOLDS = (
@@ -50,23 +55,23 @@ def analyze_severity(request: IncidentRequest) -> SeverityResponse:
             error_message="logs must not be empty",
         )
 
-    error_count = sum(1 for entry in request.logs if entry.level in _ERROR_LIKE)
-    fatal_count = sum(1 for entry in request.logs if entry.level == LogLevel.FATAL)
-    services = sorted({entry.service for entry in request.logs if entry.service})
-    duration_seconds = _duration_seconds(request.logs)
+    error_logs = [entry for entry in request.logs if entry.level in _ERROR_LIKE]
+    error_count = len(error_logs)
+    fatal_count = sum(1 for entry in error_logs if entry.level == LogLevel.FATAL)
+    affected_services = {entry.service for entry in error_logs if entry.service}
+    duration_seconds = _duration_seconds(error_logs)
 
     score = _compute_score(
         error_count=error_count,
         fatal_count=fatal_count,
-        service_count=len(services),
+        service_count=len(affected_services),
         duration_seconds=duration_seconds,
-        logs=request.logs,
     )
     level = _level_for_score(score)
     evidence = _build_evidence(request.logs)
     rationale = (
         f"score={score} from error_like={error_count}, fatal={fatal_count}, "
-        f"services={len(services)}, duration_s={duration_seconds:.1f}"
+        f"services={len(affected_services)}, duration_s={duration_seconds:.1f}"
     )
 
     return SeverityResponse(
@@ -84,29 +89,31 @@ def _compute_score(
     fatal_count: int,
     service_count: int,
     duration_seconds: float,
-    logs: list[LogEntry],
 ) -> int:
     # Frequency: capped contribution from error-like events.
-    frequency_score = min(40, error_count * 8)
+    frequency_signal = min(
+        1.0,
+        log1p(max(0, error_count)) / log1p(_FREQUENCY_SATURATION_COUNT),
+    )
     # Breadth: more services → higher impact.
-    service_score = min(30, max(0, service_count - 1) * 15)
+    breadth_signal = min(
+        1.0,
+        max(0, service_count - 1) / (_BREADTH_SATURATION_SERVICES - 1),
+    )
     # Duration: longer open incidents score higher (minutes scale).
-    if duration_seconds >= 300:
-        duration_score = 20
-    elif duration_seconds >= 60:
-        duration_score = 12
-    elif duration_seconds >= 10:
-        duration_score = 6
-    else:
-        duration_score = 2
+    duration_signal = min(
+        1.0,
+        max(0.0, duration_seconds) / _DURATION_SATURATION_SECONDS,
+    )
     # Fatal presence is a hard bump.
-    fatal_score = min(20, fatal_count * 15)
-    # Soft signal from warn/error/fatal point totals (keeps small incidents above 0).
-    level_points = sum(_LEVEL_POINTS.get(entry.level, 0) for entry in logs)
-    soft_score = min(10, level_points // 4)
-
-    total = frequency_score + service_score + duration_score + fatal_score + soft_score
-    return max(0, min(100, total))
+    fatal_signal = min(1.0, max(0, fatal_count) / _FATAL_SATURATION_COUNT)
+    total = (
+        frequency_signal * _FREQUENCY_WEIGHT
+        + breadth_signal * _BREADTH_WEIGHT
+        + duration_signal * _DURATION_WEIGHT
+        + fatal_signal * _FATAL_WEIGHT
+    )
+    return max(0, min(100, round(total)))
 
 
 def _level_for_score(score: int) -> SeverityLevel:

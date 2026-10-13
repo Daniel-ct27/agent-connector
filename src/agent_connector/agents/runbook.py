@@ -5,6 +5,7 @@ from __future__ import annotations
 from agent_connector.domain.models import (
     AgentStatus,
     IncidentRequest,
+    LogLevel,
     RunbookMatch,
     RunbookResponse,
     RunbookStep,
@@ -25,10 +26,9 @@ def recommend_actions(request: IncidentRequest) -> RunbookResponse:
             error_message="logs must not be empty",
         )
 
-    corpus = _build_corpus(request)
     matches: list[RunbookMatch] = []
     for definition in RUNBOOKS:
-        match = _match_runbook(definition, corpus)
+        match = _match_runbook(definition, request)
         if match is not None:
             matches.append(match)
 
@@ -39,19 +39,39 @@ def recommend_actions(request: IncidentRequest) -> RunbookResponse:
     )
 
 
-def _build_corpus(request: IncidentRequest) -> str:
-    parts = [request.scenario, request.incident_id]
+def _match_runbook(
+    definition: RunbookDefinition,
+    request: IncidentRequest,
+) -> RunbookMatch | None:
+    matched_terms: set[str] = set()
+    primary_match = False
+
+    scenario_matches = _matching_keywords(definition, request.scenario)
+    if scenario_matches:
+        primary_match = True
+        matched_terms.update(scenario_matches)
+
     for entry in request.logs:
-        parts.append(entry.service)
-        parts.append(entry.message)
-        parts.extend(entry.metadata.values())
-    return " ".join(parts).lower()
+        if entry.level not in {LogLevel.ERROR, LogLevel.FATAL}:
+            continue
 
+        contextual_matches = _matching_keywords(
+            definition,
+            f"{entry.service} {entry.message}",
+        )
+        if contextual_matches:
+            primary_match = True
+            matched_terms.update(contextual_matches)
 
-def _match_runbook(definition: RunbookDefinition, corpus: str) -> RunbookMatch | None:
-    matched = [keyword for keyword in definition.keywords if keyword.lower() in corpus]
-    if not matched:
+        # Metadata can explain an existing match, but cannot create one alone.
+        metadata_text = " ".join(entry.metadata.values())
+        matched_terms.update(_matching_keywords(definition, metadata_text))
+
+    if not primary_match:
         return None
+
+    # Preserve catalog order so responses remain deterministic.
+    matched = [term for term in definition.keywords if term in matched_terms]
 
     confidence = min(1.0, len(matched) / max(3, len(definition.keywords) // 2))
     # Prefer stronger coverage when many keywords hit.
@@ -70,3 +90,15 @@ def _match_runbook(definition: RunbookDefinition, corpus: str) -> RunbookMatch |
             for order, action, detail in definition.steps
         ],
     )
+
+
+def _matching_keywords(
+    definition: RunbookDefinition,
+    text: str,
+) -> set[str]:
+    searchable = text.lower()
+    return {
+        keyword
+        for keyword in definition.keywords
+        if keyword.lower() in searchable
+    }

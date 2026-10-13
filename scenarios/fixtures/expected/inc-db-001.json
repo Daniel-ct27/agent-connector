@@ -2,8 +2,8 @@
   "incident_id": "inc-db-001",
   "scenario": "db_connection_failure",
   "severity": {
-    "level": "CRITICAL",
-    "score_min": 75,
+    "level": "MEDIUM",
+    "score_min": 37,
     "status": "OK",
     "evidence_services": ["api-gateway", "checkout-service", "orders-db"]
   },

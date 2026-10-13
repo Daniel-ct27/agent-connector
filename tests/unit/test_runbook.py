@@ -95,3 +95,65 @@ def test_recommend_actions_returns_empty_when_no_keywords_match() -> None:
 
     assert result.status == AgentStatus.OK
     assert result.recommendations == []
+
+
+def test_info_log_keywords_do_not_create_a_runbook_match() -> None:
+    request = IncidentRequest(
+        incident_id="inc-context",
+        logs=[
+            LogEntry(
+                timestamp="2026-03-15T14:00:00Z",
+                service="auth-service",
+                level=LogLevel.INFO,
+                message="TLS certificate expired warning was cleared",
+            ),
+            LogEntry(
+                timestamp="2026-03-15T14:00:01Z",
+                service="checkout-service",
+                level=LogLevel.ERROR,
+                message="database connection timeout",
+            ),
+        ],
+    )
+
+    result = recommend_actions(request)
+
+    runbook_ids = {match.runbook_id for match in result.recommendations}
+    assert "rb-db-connection" in runbook_ids
+    assert "rb-expired-cert" not in runbook_ids
+
+
+def test_metadata_keywords_cannot_create_a_match_alone() -> None:
+    request = IncidentRequest(
+        incident_id="inc-metadata-only",
+        logs=[
+            LogEntry(
+                timestamp="2026-03-15T14:00:00Z",
+                service="api",
+                level=LogLevel.ERROR,
+                message="operation failed",
+                metadata={"old_alert": "certificate expired"},
+            )
+        ],
+    )
+
+    assert recommend_actions(request).recommendations == []
+
+
+def test_failing_service_name_can_create_a_contextual_match() -> None:
+    request = IncidentRequest(
+        incident_id="inc-service-context",
+        logs=[
+            LogEntry(
+                timestamp="2026-03-15T14:00:00Z",
+                service="orders-db",
+                level=LogLevel.ERROR,
+                message="service unavailable",
+            )
+        ],
+    )
+
+    result = recommend_actions(request)
+
+    assert result.recommendations[0].runbook_id == "rb-db-connection"
+    assert "orders-db" in result.recommendations[0].matched_terms

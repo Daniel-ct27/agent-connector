@@ -2,8 +2,8 @@
   "incident_id": "inc-retry-001",
   "scenario": "retry_storm",
   "severity": {
-    "level": "CRITICAL",
-    "score_min": 75,
+    "level": "MEDIUM",
+    "score_min": 39,
     "status": "OK",
     "evidence_services": [
       "api-gateway",
