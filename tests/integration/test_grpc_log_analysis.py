@@ -1,18 +1,21 @@
-"""Real-channel integration tests for unary Log Analysis gRPC."""
+"""Real-channel integration tests for Log Analysis gRPC."""
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
 import json
 from pathlib import Path
 
 import grpc
 import pytest
 
-from agent_connector.agents.log_analysis import analyze_logs
+from agent_connector.agents.log_analysis import analyze_logs, analyze_logs_stream
 from agent_connector.domain.models import (
     EvidenceItem,
     IncidentRequest,
+    LogAnalysisEvent,
+    LogAnalysisEventType,
     LogAnalysisResult,
     LogEntry,
     LogLevel,
@@ -23,6 +26,7 @@ from agent_connector.grpc_services.lifecycle import start_server
 from agent_connector.grpc_services.log_analysis import LogAnalysisGrpcService
 from agent_connector.protocol.protobuf import (
     incident_request_to_proto,
+    log_analysis_event_from_proto,
     log_analysis_result_from_proto,
 )
 
@@ -39,8 +43,11 @@ def _load_request() -> IncidentRequest:
     return IncidentRequest.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
 
 
-async def _start_log_analysis(analyzer=analyze_logs):
-    service = LogAnalysisGrpcService(analyzer)
+async def _start_log_analysis(
+    analyzer=analyze_logs,
+    stream_analyzer=analyze_logs_stream,
+):
+    service = LogAnalysisGrpcService(analyzer, stream_analyzer)
     return await start_server(
         lambda server: pb_grpc.add_LogAnalysisServiceServicer_to_server(
             service,
@@ -48,6 +55,19 @@ async def _start_log_analysis(analyzer=analyze_logs):
         ),
         port=0,
     )
+
+
+async def _collect_stream(
+    stub: pb_grpc.LogAnalysisServiceStub,
+    incident: IncidentRequest,
+    *,
+    timeout: float = 10.0,
+) -> list[LogAnalysisEvent]:
+    stream = stub.AnalyzeLogsStream(
+        incident_request_to_proto(incident),
+        timeout=timeout,
+    )
+    return [log_analysis_event_from_proto(event) async for event in stream]
 
 
 def test_analyze_logs_matches_direct_result() -> None:
@@ -168,9 +188,53 @@ def test_maximum_log_count_completes_successfully() -> None:
     asyncio.run(exercise())
 
 
-def test_streaming_is_explicitly_unimplemented() -> None:
+def test_analyze_logs_stream_event_order_matches_domain() -> None:
     async def exercise() -> None:
+        incident = _load_request()
+        expected = list(analyze_logs_stream(incident))
         running = await _start_log_analysis()
+        try:
+            async with grpc.aio.insecure_channel(running.target) as channel:
+                stub = pb_grpc.LogAnalysisServiceStub(channel)
+                events = await _collect_stream(stub, incident)
+            assert [event.type for event in events] == [event.type for event in expected]
+            assert events[0].type == LogAnalysisEventType.STARTED
+            assert events[-1].type == LogAnalysisEventType.COMPLETED
+            assert events[-1].result == analyze_logs(incident)
+            assert any(
+                event.type == LogAnalysisEventType.EVIDENCE_FOUND for event in events
+            )
+        finally:
+            await running.stop(0)
+
+    asyncio.run(exercise())
+
+
+def test_analyze_logs_stream_emits_error_for_invalid_request() -> None:
+    async def exercise() -> None:
+        incident = IncidentRequest(incident_id="inc-empty", logs=[])
+        running = await _start_log_analysis()
+        try:
+            async with grpc.aio.insecure_channel(running.target) as channel:
+                stub = pb_grpc.LogAnalysisServiceStub(channel)
+                events = await _collect_stream(stub, incident)
+            assert len(events) == 1
+            assert events[0].type == LogAnalysisEventType.ERROR
+            assert events[0].result is not None
+            assert events[0].result.error_message == "logs must not be empty"
+        finally:
+            await running.stop(0)
+
+    asyncio.run(exercise())
+
+
+def test_analyze_logs_stream_sanitizes_unexpected_failure() -> None:
+    def fail(_request: IncidentRequest) -> Iterator[LogAnalysisEvent]:
+        raise RuntimeError("private stream failure")
+        yield  # pragma: no cover
+
+    async def exercise() -> None:
+        running = await _start_log_analysis(stream_analyzer=fail)
         try:
             async with grpc.aio.insecure_channel(running.target) as channel:
                 stub = pb_grpc.LogAnalysisServiceStub(channel)
@@ -180,8 +244,9 @@ def test_streaming_is_explicitly_unimplemented() -> None:
                 )
                 with pytest.raises(grpc.aio.AioRpcError) as captured:
                     await stream.read()
-            assert captured.value.code() == grpc.StatusCode.UNIMPLEMENTED
-            assert captured.value.details() == "streaming log analysis is not available"
+            assert captured.value.code() == grpc.StatusCode.INTERNAL
+            assert captured.value.details() == "internal agent error"
+            assert "private stream failure" not in captured.value.details()
         finally:
             await running.stop(0)
 
