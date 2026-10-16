@@ -11,6 +11,7 @@ import grpc
 import pytest
 
 from agent_connector.agents.log_analysis import analyze_logs, analyze_logs_stream
+from agent_connector.config import MAX_LOG_ENTRIES
 from agent_connector.domain.models import (
     EvidenceItem,
     IncidentRequest,
@@ -222,6 +223,36 @@ def test_analyze_logs_stream_emits_error_for_invalid_request() -> None:
             assert events[0].type == LogAnalysisEventType.ERROR
             assert events[0].result is not None
             assert events[0].result.error_message == "logs must not be empty"
+        finally:
+            await running.stop(0)
+
+    asyncio.run(exercise())
+
+
+def test_analyze_logs_stream_emits_error_for_over_limit_logs() -> None:
+    async def exercise() -> None:
+        log = LogEntry(
+            timestamp="2026-03-15T14:00:00Z",
+            service="api",
+            level=LogLevel.ERROR,
+            message="upstream timeout",
+        )
+        incident = IncidentRequest(
+            incident_id="inc-too-large",
+            scenario="scale_test",
+            logs=[log] * (MAX_LOG_ENTRIES + 1),
+        )
+        running = await _start_log_analysis()
+        try:
+            async with grpc.aio.insecure_channel(running.target) as channel:
+                stub = pb_grpc.LogAnalysisServiceStub(channel)
+                events = await _collect_stream(stub, incident, timeout=30.0)
+            assert len(events) == 1
+            assert events[0].type == LogAnalysisEventType.ERROR
+            assert events[0].result is not None
+            assert events[0].result.error_message == (
+                f"logs must contain at most {MAX_LOG_ENTRIES} entries"
+            )
         finally:
             await running.stop(0)
 
