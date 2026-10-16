@@ -19,6 +19,11 @@ dev = [
     "pytest>=9,<10",
 ]
 
+[project.scripts]
+agent-connector-severity = "agent_connector.servers.severity:main"
+agent-connector-runbook = "agent_connector.servers.runbook:main"
+agent-connector-log-analysis = "agent_connector.servers.log_analysis:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

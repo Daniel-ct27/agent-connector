@@ -7,9 +7,9 @@ with three specialized agents:
 - **Runbook** recommends relevant troubleshooting steps.
 - **Log Analysis** extracts repeated error patterns and suggests a likely cause.
 
-The current version contains the tested agent logic and generated gRPC
-contracts. Network servers, orchestration, and HTTP endpoints will be added in
-later stages.
+The current version includes the tested agent logic, generated gRPC contracts,
+and three independently runnable local gRPC agent processes. Orchestration and
+HTTP endpoints come in later stages.
 
 ## How it currently works
 
@@ -98,6 +98,34 @@ for event in analyze_logs_stream(incident):
     print(event.type.value, event.message)
 ```
 
+## Run the local gRPC agent processes
+
+Each agent listens on localhost with the locked demo ports:
+
+| Agent | Address |
+|---|---|
+| Severity | `127.0.0.1:50051` |
+| Runbook | `127.0.0.1:50052` |
+| Log Analysis | `127.0.0.1:50053` |
+
+In three separate terminals:
+
+```bash
+python -m agent_connector.servers.severity
+python -m agent_connector.servers.runbook
+python -m agent_connector.servers.log_analysis
+```
+
+After `pip install -e .`, the same entry points are also available as:
+
+```bash
+agent-connector-severity
+agent-connector-runbook
+agent-connector-log-analysis
+```
+
+Stop a process with Ctrl+C.
+
 ## Run the tests
 
 ```bash
@@ -105,8 +133,8 @@ python -m pytest -q
 ```
 
 The current suite tests the three agents, input validation, sample incidents,
-stream event ordering, shared evidence behavior, and conversions between
-Pydantic and protobuf messages.
+stream event ordering, shared evidence behavior, conversions between Pydantic
+and protobuf messages, and the gRPC service adapters.
 
 ## Regenerate protobuf files
 
@@ -146,12 +174,15 @@ scripts/generate_proto.sh           Protobuf generation helper
 src/agent_connector/agents/         Severity, Runbook, and Log Analysis logic
 src/agent_connector/domain/         Pydantic request and response models
 src/agent_connector/generated/      Generated protobuf and gRPC modules
+src/agent_connector/grpc_services/  Thin async gRPC adapters
+src/agent_connector/servers/        Independently runnable agent processes
 src/agent_connector/protocol/       Domain/protobuf conversion functions
 src/agent_connector/runbooks/       Local troubleshooting catalog
 tests/unit/                         Unit and contract tests
+tests/integration/                  Real-channel gRPC integration tests
 ```
 
 ## Current limitations
 
-This repository does not yet provide runnable gRPC servers, an orchestrator, an
-HTTP API, or an end-user CLI. Those begin with the next implementation stage.
+This repository does not yet provide an orchestrator, an HTTP API, or an
+end-user CLI. Those begin with the next implementation stage.
