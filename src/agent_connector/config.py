@@ -15,3 +15,10 @@ LOG_ANALYSIS_GRPC_PORT = 50053
 
 # Slightly under gRPC's common 4 MiB default message ceiling.
 MAX_GRPC_REQUEST_BYTES = 3_932_160
+
+# --- Orchestrator deadlines (Stage 4) ------------------------------------
+UNARY_DEADLINE_SECONDS = 2.0
+STREAM_DEADLINE_SECONDS = 10.0
+
+# Default append target for structured orchestrator JSONL logs.
+DEFAULT_ORCHESTRATOR_JSONL_PATH = "logs/orchestrator.jsonl"

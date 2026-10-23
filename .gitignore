@@ -1,6 +1,12 @@
 # Local / working notes
 docs/
 
+# Runtime orchestrator logs
+logs/
+
+# Local pytest scratch (Windows Temp can be permission-locked)
+.pytest_tmp/
+
 # Python
 __pycache__/
 *.py[cod]
