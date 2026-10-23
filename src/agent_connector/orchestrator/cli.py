@@ -14,6 +14,7 @@ from agent_connector.config import (
     UNARY_DEADLINE_SECONDS,
 )
 from agent_connector.domain.models import IncidentRequest, LogAnalysisEvent
+from agent_connector.orchestrator.jsonl import normalize_jsonl_path
 from agent_connector.orchestrator.orchestrate import AgentEndpoints, orchestrate
 
 
@@ -101,9 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--jsonl",
-        type=Path,
-        default=Path(DEFAULT_ORCHESTRATOR_JSONL_PATH),
-        help="Append structured JSONL logs here (use empty string to disable)",
+        default=DEFAULT_ORCHESTRATOR_JSONL_PATH,
+        help=(
+            "Append structured JSONL logs here "
+            "(empty string disables; --no-jsonl also disables)"
+        ),
     )
     parser.add_argument(
         "--no-jsonl",
@@ -114,15 +117,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--unary-deadline",
         type=float,
         default=UNARY_DEADLINE_SECONDS,
-        help="Unary RPC deadline in seconds",
+        help="Unary RPC deadline in seconds (must be > 0)",
     )
     parser.add_argument(
         "--stream-deadline",
         type=float,
         default=STREAM_DEADLINE_SECONDS,
-        help="Log Analysis stream deadline in seconds",
+        help="Log Analysis stream deadline in seconds (must be > 0)",
     )
     return parser
+
+
+def resolve_jsonl_path(*, jsonl: str, no_jsonl: bool) -> Path | None:
+    """Apply CLI flags to choose a JSONL destination or disable logging."""
+    if no_jsonl:
+        return None
+    return normalize_jsonl_path(jsonl)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -133,6 +143,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"fixture not found: {args.fixture}", file=sys.stderr)
         return 2
 
+    if args.unary_deadline <= 0 or args.stream_deadline <= 0:
+        print("deadlines must be greater than 0", file=sys.stderr)
+        return 2
+
     request = IncidentRequest.model_validate(
         json.loads(args.fixture.read_text(encoding="utf-8"))
     )
@@ -141,11 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         runbook=args.runbook_target,
         log_analysis=args.log_analysis_target,
     )
-    jsonl_path: Path | None
-    if args.no_jsonl:
-        jsonl_path = None
-    else:
-        jsonl_path = args.jsonl
+    jsonl_path = resolve_jsonl_path(jsonl=args.jsonl, no_jsonl=args.no_jsonl)
 
     report = asyncio.run(
         orchestrate(
