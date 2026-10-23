@@ -8,9 +8,10 @@ with three specialized agents:
 - **Log Analysis** extracts repeated error patterns and suggests a likely cause.
 
 The current version includes the tested agent logic, generated gRPC contracts,
-three independently runnable local gRPC agent processes, and a concurrent
-mixed-workflow orchestrator with a CLI. Equivalent HTTP/JSON endpoints come in
-a later stage.
+three independently runnable local gRPC agent processes, a concurrent
+mixed-workflow orchestrator with a CLI, and a pluggable Log Analysis summarizer
+(deterministic by default, optional OpenAI live mode). Equivalent HTTP/JSON
+endpoints come in a later stage.
 
 ## How it currently works
 
@@ -66,6 +67,33 @@ Install the project and development dependencies:
 ```bash
 python -m pip install -e ".[dev]"
 ```
+
+Optional live LLM support for Log Analysis demos:
+
+```bash
+python -m pip install -e ".[llm]"
+```
+
+## Log Analysis analyzers
+
+After local evidence extraction, Log Analysis calls a pluggable summarizer:
+
+| Mode | Selection | Notes |
+|---|---|---|
+| Deterministic (default) | `AGENT_CONNECTOR_ANALYZER=deterministic` | Stable fixture/evidence summaries; used for tests and benchmarks |
+| OpenAI live | `AGENT_CONNECTOR_ANALYZER=openai` | One Chat Completions call (`gpt-4o-mini` by default) |
+
+Live mode environment variables:
+
+```text
+AGENT_CONNECTOR_ANALYZER=openai
+OPENAI_API_KEY=...                 # or AGENT_CONNECTOR_OPENAI_API_KEY
+AGENT_CONNECTOR_LLM_MODEL=gpt-4o-mini
+AGENT_CONNECTOR_LLM_TIMEOUT_SECONDS=8
+```
+
+Set these before starting the Log Analysis process. Unary/stream gRPC shapes are
+unchanged; a live failure keeps extracted evidence and returns `FAILED`.
 
 ## Run the current agent logic
 
@@ -194,6 +222,7 @@ proto/                              Protobuf messages and service definitions
 scenarios/fixtures/                 Sample incidents and expected results
 scripts/generate_proto.sh           Protobuf generation helper
 src/agent_connector/agents/         Severity, Runbook, and Log Analysis logic
+src/agent_connector/analyzers/      Deterministic and live summarizer providers
 src/agent_connector/domain/         Pydantic request and response models
 src/agent_connector/generated/      Generated protobuf and gRPC modules
 src/agent_connector/grpc_services/  Thin async gRPC adapters
@@ -207,5 +236,4 @@ tests/integration/                  Real-channel gRPC integration tests
 
 ## Current limitations
 
-This repository does not yet provide an HTTP API or live LLM analyzer. Those
-belong to later stages.
+This repository does not yet provide an HTTP API. That belongs to a later stage.
