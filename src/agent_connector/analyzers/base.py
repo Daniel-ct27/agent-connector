@@ -20,6 +20,10 @@ class AnalyzerError(RuntimeError):
     """Raised when a live analyzer cannot produce a usable summary."""
 
 
+class AnalyzerConfigError(ValueError):
+    """Raised when analyzer selection or live-provider configuration is invalid."""
+
+
 class Analyzer(Protocol):
     """Summarize an incident after deterministic preprocessing."""
 

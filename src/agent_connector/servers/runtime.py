@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import grpc
 
+from agent_connector.analyzers.base import AnalyzerConfigError
 from agent_connector.config import DEFAULT_GRPC_HOST, GRPC_SHUTDOWN_GRACE_SECONDS
 from agent_connector.grpc_services.lifecycle import ServerBindError, start_server
 
@@ -54,6 +55,9 @@ def run_agent_process(
         )
     except ServerBindError as error:
         LOGGER.error("%s", error)
+        raise SystemExit(1) from error
+    except AnalyzerConfigError as error:
+        LOGGER.error("%s configuration error: %s", service_name, error)
         raise SystemExit(1) from error
     except KeyboardInterrupt:
         LOGGER.info("%s shut down", service_name)

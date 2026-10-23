@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 import logging
 
-from agent_connector.analyzers.base import AnalyzerError, AnalyzerOutput
+from agent_connector.analyzers.base import (
+    AnalyzerConfigError,
+    AnalyzerError,
+    AnalyzerOutput,
+)
 from agent_connector.config import LLM_MAX_OUTPUT_TOKENS, LLM_TEMPERATURE
 from agent_connector.domain.models import EvidenceItem, IncidentRequest
 
@@ -33,7 +37,7 @@ class OpenAIAnalyzer:
         client: object | None = None,
     ) -> None:
         if not api_key.strip():
-            raise ValueError("OpenAI API key must not be empty")
+            raise AnalyzerConfigError("OpenAI API key must not be empty")
         self._model = model
         self._timeout_s = timeout_s
         self._max_output_tokens = max_output_tokens
@@ -89,7 +93,7 @@ def _build_client(api_key: str, timeout_s: float) -> object:
     try:
         from openai import OpenAI
     except ImportError as error:
-        raise AnalyzerError(
+        raise AnalyzerConfigError(
             "openai package is not installed; run: pip install -e \".[llm]\""
         ) from error
     return OpenAI(api_key=api_key, timeout=timeout_s)
