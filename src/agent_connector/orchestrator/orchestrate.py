@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import time
 import uuid
@@ -43,6 +44,8 @@ from agent_connector.protocol.protobuf import (
 AGENT_SEVERITY = "severity"
 AGENT_RUNBOOK = "runbook"
 AGENT_LOG_ANALYSIS = "log_analysis"
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -243,7 +246,14 @@ async def _call_log_analysis_stream(
                 message=event.message,
             )
             if on_event is not None:
-                on_event(event)
+                try:
+                    on_event(event)
+                except Exception:
+                    # Callback failures must not abort the RPC or drop sibling
+                    # agent results from the assembled IncidentReport.
+                    _LOG.exception(
+                        "on_stream_event callback failed; continuing stream"
+                    )
             if event.result is not None:
                 result = event.result
 

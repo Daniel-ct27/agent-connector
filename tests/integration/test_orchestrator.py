@@ -276,3 +276,30 @@ def test_invalid_argument_marks_partial() -> None:
         assert report.log_analysis.status == AgentStatus.INVALID_ARGUMENT
 
     asyncio.run(exercise())
+
+
+def test_stream_callback_failure_still_returns_report() -> None:
+    def boom(_event: LogAnalysisEvent) -> None:
+        raise RuntimeError("callback blew up")
+
+    async def exercise() -> None:
+        incident = _load_request()
+        severity_s, runbook_s, log_s, endpoints = await _start_agents()
+        try:
+            report = await orchestrate(
+                incident,
+                endpoints=endpoints,
+                jsonl_path=None,
+                on_stream_event=boom,
+            )
+        finally:
+            await _stop_all(severity_s, runbook_s, log_s)
+
+        assert not report.partial
+        assert report.severity is not None
+        assert report.runbook is not None
+        assert report.log_analysis is not None
+        assert report.log_analysis_events
+
+    asyncio.run(exercise())
+
