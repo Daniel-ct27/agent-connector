@@ -93,7 +93,15 @@ def test_runbook_process_register_serves_requests() -> None:
     asyncio.run(exercise())
 
 
-def test_log_analysis_process_register_serves_requests() -> None:
+def test_log_analysis_process_register_serves_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # register() reads AGENT_CONNECTOR_ANALYZER; pin deterministic so this
+    # process-entry test stays independent of the developer's shell env.
+    monkeypatch.setenv("AGENT_CONNECTOR_ANALYZER", "deterministic")
+    monkeypatch.delenv("AGENT_CONNECTOR_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
     async def exercise() -> None:
         running = await start_server(log_analysis_server.register, port=0)
         try:
