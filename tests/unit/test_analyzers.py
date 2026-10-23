@@ -6,11 +6,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent_connector.analyzers.base import AnalyzerError, AnalyzerOutput
+from agent_connector.analyzers.base import (
+    AnalyzerConfigError,
+    AnalyzerError,
+    AnalyzerOutput,
+)
 from agent_connector.analyzers.deterministic import DeterministicAnalyzer
 from agent_connector.analyzers.factory import build_analyzer
 from agent_connector.analyzers.openai_provider import OpenAIAnalyzer
 from agent_connector.agents.log_analysis import analyze_logs, analyze_logs_stream
+from agent_connector.config import LLM_TIMEOUT_ENV_VAR
 from agent_connector.domain.models import (
     AgentStatus,
     EvidenceItem,
@@ -34,8 +39,36 @@ def test_build_analyzer_defaults_to_deterministic(monkeypatch: pytest.MonkeyPatc
 
 
 def test_build_analyzer_rejects_unknown_name() -> None:
-    with pytest.raises(ValueError, match="unknown analyzer"):
+    with pytest.raises(AnalyzerConfigError, match="unknown analyzer"):
         build_analyzer("nope")
+
+
+def test_build_analyzer_rejects_invalid_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_CONNECTOR_ANALYZER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv(LLM_TIMEOUT_ENV_VAR, "abc")
+    with pytest.raises(AnalyzerConfigError, match="positive number"):
+        build_analyzer()
+
+
+def test_build_analyzer_requires_api_key_for_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_CONNECTOR_ANALYZER", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AGENT_CONNECTOR_OPENAI_API_KEY", raising=False)
+    with pytest.raises(AnalyzerConfigError, match="OPENAI_API_KEY"):
+        build_analyzer("live")
+
+
+def test_build_analyzer_accepts_live_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    analyzer = build_analyzer("live")
+    assert analyzer.name == "openai"
 
 
 def test_analyze_logs_uses_injected_analyzer() -> None:
