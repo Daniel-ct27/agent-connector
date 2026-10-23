@@ -23,6 +23,7 @@ dev = [
 agent-connector-severity = "agent_connector.servers.severity:main"
 agent-connector-runbook = "agent_connector.servers.runbook:main"
 agent-connector-log-analysis = "agent_connector.servers.log_analysis:main"
+agent-connector = "agent_connector.orchestrator.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
