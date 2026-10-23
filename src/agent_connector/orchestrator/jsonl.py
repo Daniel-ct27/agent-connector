@@ -8,11 +8,29 @@ from pathlib import Path
 from typing import Any, TextIO
 
 
+def normalize_jsonl_path(path: Path | str | None) -> Path | None:
+    """Return a usable log file path, or None when logging is disabled.
+
+    Empty / whitespace-only strings disable logging. ``Path("")`` collapses to
+    ``Path(".")`` on most platforms, so a bare ``.`` is also treated as disabled
+    rather than opening the current directory as a file.
+    """
+    if path is None:
+        return None
+    if isinstance(path, str):
+        stripped = path.strip()
+        return Path(stripped) if stripped else None
+    text = str(path).strip()
+    if text in ("", "."):
+        return None
+    return path
+
+
 class JsonlLogger:
     """Thread-hostile, asyncio-friendly append logger (one writer at a time)."""
 
     def __init__(self, path: Path | str | None) -> None:
-        self._path = Path(path) if path is not None else None
+        self._path = normalize_jsonl_path(path)
         self._handle: TextIO | None = None
 
     def __enter__(self) -> JsonlLogger:
