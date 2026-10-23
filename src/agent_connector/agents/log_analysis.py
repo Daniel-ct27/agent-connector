@@ -1,14 +1,12 @@
-"""Log Analysis agent: local preprocessing plus deterministic stub summary.
-
-Live LLM integration is deferred (Stage 5). Stream event generation is
-protocol-agnostic so gRPC can wrap it later.
-"""
+"""Log Analysis agent: local preprocessing plus pluggable summarizer."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 
 from agent_connector.agents.evidence import extract_evidence
+from agent_connector.analyzers.base import Analyzer, AnalyzerError, AnalyzerOutput
+from agent_connector.analyzers.deterministic import DeterministicAnalyzer
 from agent_connector.domain.models import (
     AgentStatus,
     EvidenceItem,
@@ -22,42 +20,42 @@ from agent_connector.domain.validation import (
     validate_incident_request,
 )
 
-# Stable outputs used only by the three protocol-comparison fixtures. This is
-# not the production analysis path; unknown scenarios use the log-derived
-# fallback below until a real analyzer provider replaces this stub.
-_FIXTURE_SUMMARIES = {
-    "db_connection_failure": (
-        "Repeated database connection timeouts and connection saturation on orders-db.",
-        "database connection failure on orders-db",
-    ),
-    "retry_storm": (
-        "Payment retries amplified load until card-gateway rate limiting and checkout failures.",
-        "retry storm against payment / rate limit",
-    ),
-    "expired_certificate": (
-        "TLS handshakes failing because the auth-service certificate is expired.",
-        "expired TLS certificate on auth-service",
-    ),
-}
+_DEFAULT_ANALYZER = DeterministicAnalyzer()
 
 
-def analyze_logs(request: IncidentRequest) -> LogAnalysisResult:
+def analyze_logs(
+    request: IncidentRequest,
+    *,
+    analyzer: Analyzer | None = None,
+) -> LogAnalysisResult:
     """Unary log analysis used by the fair protocol comparison path."""
     invalid = _validate(request)
     if invalid is not None:
         return invalid
 
     evidence = extract_evidence(request.logs)
-    summary, likely_cause = stub_summarize(request, evidence)
+    active = analyzer or _DEFAULT_ANALYZER
+    try:
+        output = active.summarize(request, evidence)
+    except AnalyzerError as error:
+        return LogAnalysisResult(
+            evidence=evidence,
+            status=AgentStatus.FAILED,
+            error_message=str(error),
+        )
     return LogAnalysisResult(
         evidence=evidence,
-        summary=summary,
-        likely_cause=likely_cause,
+        summary=output.summary,
+        likely_cause=output.likely_cause,
         status=AgentStatus.OK,
     )
 
 
-def analyze_logs_stream(request: IncidentRequest) -> Iterator[LogAnalysisEvent]:
+def analyze_logs_stream(
+    request: IncidentRequest,
+    *,
+    analyzer: Analyzer | None = None,
+) -> Iterator[LogAnalysisEvent]:
     """Yield ordered progress events ending in a full LogAnalysisResult."""
     invalid = _validate(request)
     if invalid is not None:
@@ -82,11 +80,27 @@ def analyze_logs_stream(request: IncidentRequest) -> Iterator[LogAnalysisEvent]:
             evidence=item,
         )
 
-    summary, likely_cause = stub_summarize(request, evidence)
+    active = analyzer or _DEFAULT_ANALYZER
+    try:
+        output = active.summarize(request, evidence)
+    except AnalyzerError as error:
+        failed = LogAnalysisResult(
+            evidence=evidence,
+            status=AgentStatus.FAILED,
+            error_message=str(error),
+        )
+        yield LogAnalysisEvent(
+            type=LogAnalysisEventType.ERROR,
+            message=str(error),
+            error_message=str(error),
+            result=failed,
+        )
+        return
+
     completed = LogAnalysisResult(
         evidence=evidence,
-        summary=summary,
-        likely_cause=likely_cause,
+        summary=output.summary,
+        likely_cause=output.likely_cause,
         status=AgentStatus.OK,
     )
     yield LogAnalysisEvent(
@@ -100,23 +114,9 @@ def stub_summarize(
     request: IncidentRequest,
     evidence: list[EvidenceItem],
 ) -> tuple[str, str]:
-    """Deterministic protocol-test substitute for the future analyzer."""
-    if request.scenario in _FIXTURE_SUMMARIES:
-        return _FIXTURE_SUMMARIES[request.scenario]
-
-    if not evidence:
-        return (
-            "No error-like evidence found in the provided logs.",
-            "insufficient evidence",
-        )
-
-    top = evidence[0]
-    summary = (
-        f"Dominant signal from {top.service}: {top.sample_message} "
-        f"(seen {top.count} time(s) across {len(evidence)} service(s))."
-    )
-    likely_cause = f"repeated failures in {top.service}"
-    return summary, likely_cause
+    """Backward-compatible wrapper around DeterministicAnalyzer."""
+    output: AnalyzerOutput = DeterministicAnalyzer().summarize(request, evidence)
+    return output.summary, output.likely_cause
 
 
 def _validate(request: IncidentRequest) -> LogAnalysisResult | None:
