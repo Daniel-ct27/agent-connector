@@ -4,6 +4,9 @@ docs/
 # Runtime orchestrator logs
 logs/
 
+# Generated Stage 7 synthetic fixtures (recreate with the generator)
+scenarios/generated/
+
 # Local pytest scratch (Windows Temp can be permission-locked)
 .pytest_tmp/
 
