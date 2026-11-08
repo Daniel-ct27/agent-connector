@@ -7,6 +7,7 @@ import asyncio
 from pathlib import Path
 import sys
 
+from agent_connector.benchmarks.aggregate import write_charts, write_summary_csv
 from agent_connector.benchmarks.fixtures import write_generated_fixtures
 from agent_connector.benchmarks.runner import BenchmarkTransports, run_benchmark_matrix
 from agent_connector.config import (
@@ -77,12 +78,34 @@ def build_parser() -> argparse.ArgumentParser:
         default=BENCHMARK_TIMED_TRIALS,
         help="Timed trials recorded per cell",
     )
+    parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="Write summary.csv and charts after the timed matrix",
+    )
+    parser.add_argument(
+        "--summary-only",
+        type=Path,
+        default=None,
+        help="Only aggregate an existing trials.csv path (no timed run)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.summary_only is not None:
+        if not args.summary_only.is_file():
+            print(f"trials csv not found: {args.summary_only}", file=sys.stderr)
+            return 2
+        summary_path = write_summary_csv(args.summary_only)
+        chart_paths = write_charts(summary_path)
+        print(f"wrote {summary_path}")
+        for path in chart_paths:
+            print(f"wrote {path}")
+        return 0
 
     if args.warmup < 0 or args.trials < 1:
         print("warmup must be >= 0 and trials must be >= 1", file=sys.stderr)
@@ -118,6 +141,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     print(f"wrote benchmark results to {out_dir}")
+    if args.summarize:
+        summary_path = write_summary_csv(out_dir / "trials.csv")
+        chart_paths = write_charts(summary_path)
+        print(f"wrote {summary_path}")
+        for path in chart_paths:
+            print(f"wrote {path}")
     return 0
 
 
