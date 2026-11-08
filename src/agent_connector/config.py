@@ -16,6 +16,17 @@ LOG_ANALYSIS_GRPC_PORT = 50053
 # Slightly under gRPC's common 4 MiB default message ceiling.
 MAX_GRPC_REQUEST_BYTES = 3_932_160
 
+# --- Local HTTP servers (Stage 6) ----------------------------------------
+DEFAULT_HTTP_HOST = "127.0.0.1"
+
+# Distinct from the gRPC demo ports so both stacks can run together.
+SEVERITY_HTTP_PORT = 8001
+RUNBOOK_HTTP_PORT = 8002
+LOG_ANALYSIS_HTTP_PORT = 8003
+
+# Same ceiling as gRPC for fair unary request-size comparison.
+MAX_HTTP_REQUEST_BYTES = MAX_GRPC_REQUEST_BYTES
+
 # --- Orchestrator deadlines (Stage 4) ------------------------------------
 UNARY_DEADLINE_SECONDS = 2.0
 STREAM_DEADLINE_SECONDS = 10.0
