@@ -309,9 +309,16 @@ Committed under `report/`:
 
 - `EVALUATION.md` — research answers from the scored Stage 7 run
 - `PRESENTATION.md` — slide outline
-- `DEMO.md` — live CLI demonstration script
+- `DEMO.md` — live CLI demonstration script (includes optional live-LLM step)
 - `summary.csv` + `charts/` — copied artifacts from run
   `25059da3-b692-424e-bb9c-6ebb8b36b950`
+
+Optional rehearsal helpers:
+
+```bash
+# concurrent race/stress smoke (ephemeral agents; not a scored Stage 7 run)
+python scripts/stress_race_smoke.py
+```
 
 ## Current limitations
 

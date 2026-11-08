@@ -14,9 +14,11 @@ Use charts in `report/charts/` and numbers from `report/EVALUATION.md`.
 10. **Streaming value** — chart `stream_ttfe_vs_payload.png` (early updates)
 11. **Limitations** — localhost synthetic workload only
 12. **Takeaways + demo** — gRPC wins speed/size here; streaming adds progressive feedback
+13. **(Optional) Live LLM** — one call in Log Analysis after local evidence; off during benchmarks
 
 ## Speaker notes (short)
 
 - Do not claim WAN/production generality.
 - Emphasize shared core logic so transport is the variable.
 - Keep stream TTFE separate from unary latency slides.
+- LLM is not the orchestrator: one summarizer call inside Log Analysis only.
