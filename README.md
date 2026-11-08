@@ -303,7 +303,17 @@ tests/integration/                  Real-channel gRPC/HTTP integration tests
 benchmarks/results/                 Timed run outputs (gitignored per run id)
 ```
 
+## Stage 8 report materials
+
+Committed under `report/`:
+
+- `EVALUATION.md` — research answers from the scored Stage 7 run
+- `PRESENTATION.md` — slide outline
+- `DEMO.md` — live CLI demonstration script
+- `summary.csv` + `charts/` — copied artifacts from run
+  `25059da3-b692-424e-bb9c-6ebb8b36b950`
+
 ## Current limitations
 
-Written evaluation, presentation, and demo script polish belong to Stage 8.
-Keep live LLM mode out of transport benchmark runs.
+Keep live LLM mode out of transport benchmark runs. Numeric claims are for the
+local synthetic workload described in `report/EVALUATION.md`.
