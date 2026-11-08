@@ -445,7 +445,15 @@ async def _orchestrate_http_unary(
 ) -> IncidentReport:
     run_id = str(uuid.uuid4())
     with JsonlLogger(jsonl_path) as logger:
-        async with httpx.AsyncClient() as client:
+        # Keepalive + connection pool so HTTP is not unfairly charged for a
+        # fresh TCP handshake on every agent call within one orchestration.
+        async with httpx.AsyncClient(
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+            ),
+            trust_env=False,
+        ) as client:
             severity_task = asyncio.create_task(
                 _call_http_unary(
                     agent=AGENT_SEVERITY,

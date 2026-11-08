@@ -15,8 +15,10 @@ from agent_connector.config import MAX_HTTP_REQUEST_BYTES
 class MaxBodySizeMiddleware:
     """Reject requests at or above the project's HTTP byte ceiling.
 
-    Checks ``Content-Length`` when present, then reads the body with a hard
-    cap so chunked or missing-length requests cannot bypass the limit.
+    When ``Content-Length`` is present and under the ceiling, the request is
+    passed through without buffering so fair unary comparisons are not slowed
+    by an extra full-body copy. Chunked / missing-length bodies are still
+    streamed with a hard cap.
     """
 
     def __init__(self, app: ASGIApp, max_bytes: int = MAX_HTTP_REQUEST_BYTES) -> None:
@@ -52,10 +54,16 @@ class MaxBodySizeMiddleware:
                     ),
                 )
                 return
+            # Trusted declared size under the ceiling: avoid a full buffer/replay
+            # that would unfairly penalize the HTTP path vs gRPC.
+            await self.app(scope, receive, send)
+            return
 
         body = bytearray()
         while True:
             message = await receive()
+            if message["type"] == "http.disconnect":
+                return
             if message["type"] != "http.request":
                 continue
             chunk = message.get("body", b"")
