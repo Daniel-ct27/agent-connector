@@ -31,7 +31,7 @@ def test_demo_panel_index_and_fixtures() -> None:
     assert "chart.js" in index.text.lower()
     assert "Scored evidence" in index.text
     assert "chart-live" in index.text
-    assert "after every run" in index.text
+    assert "grouped bars" in index.text
     assert "#cfef3a" in index.text
     assert "Agent<br />Connector" in index.text
     fixtures = client.get("/api/fixtures")
