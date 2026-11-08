@@ -8,10 +8,10 @@ with three specialized agents:
 - **Log Analysis** extracts repeated error patterns and suggests a likely cause.
 
 The current version includes the tested agent logic, generated gRPC contracts,
-three independently runnable local gRPC agent processes, a concurrent
-mixed-workflow orchestrator with a CLI, and a pluggable Log Analysis summarizer
-(deterministic by default, optional OpenAI live mode). Equivalent HTTP/JSON
-endpoints come in a later stage.
+three independently runnable local gRPC agent processes, matching unary
+HTTP/JSON FastAPI processes, a concurrent mixed-workflow orchestrator with a
+CLI (`grpc-stream`, `grpc-unary`, or `http-unary`), and a pluggable Log
+Analysis summarizer (deterministic by default, optional OpenAI live mode).
 
 ## How it currently works
 
@@ -155,12 +155,53 @@ agent-connector-log-analysis
 
 Stop a process with Ctrl+C.
 
-## Run the mixed gRPC workflow
+## Run the local HTTP agent processes
 
-With the three agent processes running, analyze a fixture concurrently:
+Each unary HTTP agent listens on localhost with the locked demo ports:
+
+| Agent | Address |
+|---|---|
+| Severity | `http://127.0.0.1:8001` |
+| Runbook | `http://127.0.0.1:8002` |
+| Log Analysis | `http://127.0.0.1:8003` |
+
+Routes:
+
+| Agent | Method | Path |
+|---|---|---|
+| Severity | `POST` | `/v1/severity/analyze` |
+| Runbook | `POST` | `/v1/runbook/recommend` |
+| Log Analysis | `POST` | `/v1/log-analysis/analyze` |
+
+In three separate terminals:
+
+```bash
+python -m agent_connector.servers.http_severity
+python -m agent_connector.servers.http_runbook
+python -m agent_connector.servers.http_log_analysis
+```
+
+After `pip install -e .`, the same entry points are also available as:
+
+```bash
+agent-connector-http-severity
+agent-connector-http-runbook
+agent-connector-http-log-analysis
+```
+
+## Run the orchestrator CLI
+
+Default mixed gRPC stream workflow (gRPC agents on `50051`–`50053`):
 
 ```bash
 agent-connector scenarios/fixtures/inc-db-001.json
+```
+
+Unary comparison paths:
+
+```bash
+agent-connector --transport grpc-unary scenarios/fixtures/inc-db-001.json
+agent-connector --transport http-unary scenarios/fixtures/inc-db-001.json
 ```
 
 Or without the console script:
@@ -169,8 +210,8 @@ Or without the console script:
 python -m agent_connector.orchestrator.cli scenarios/fixtures/inc-db-001.json
 ```
 
-The CLI prints Log Analysis stream updates as they arrive, then a combined
-incident report. Structured call/event records append to
+For `grpc-stream`, the CLI prints Log Analysis stream updates as they arrive,
+then a combined incident report. Structured call/event records append to
 `logs/orchestrator.jsonl` by default (`--no-jsonl` disables logging).
 
 Exit status is `0` when every agent completes with `OK`, otherwise `1`.
@@ -183,8 +224,9 @@ python -m pytest -q
 
 The current suite tests the three agents, input validation, sample incidents,
 stream event ordering, shared evidence behavior, conversions between Pydantic
-and protobuf messages, the gRPC service adapters, and concurrent orchestration
-including timeout and unavailable-agent partial reports.
+and protobuf messages, the gRPC and HTTP service adapters, concurrent
+orchestration (stream and unary), and cross-transport equivalence including
+timeout and unavailable-agent partial reports.
 
 ## Regenerate protobuf files
 
@@ -226,14 +268,16 @@ src/agent_connector/analyzers/      Deterministic and live summarizer providers
 src/agent_connector/domain/         Pydantic request and response models
 src/agent_connector/generated/      Generated protobuf and gRPC modules
 src/agent_connector/grpc_services/  Thin async gRPC adapters
+src/agent_connector/http_services/  Thin FastAPI unary adapters
 src/agent_connector/servers/        Independently runnable agent processes
-src/agent_connector/orchestrator/   Concurrent mixed gRPC workflow and CLI
+src/agent_connector/orchestrator/   Concurrent stream/unary workflows and CLI
 src/agent_connector/protocol/       Domain/protobuf conversion functions
 src/agent_connector/runbooks/       Local troubleshooting catalog
 tests/unit/                         Unit and contract tests
-tests/integration/                  Real-channel gRPC integration tests
+tests/integration/                  Real-channel gRPC/HTTP integration tests
 ```
 
 ## Current limitations
 
-This repository does not yet provide an HTTP API. That belongs to a later stage.
+Benchmarks, multi-size synthetic datasets, charts, and the written evaluation
+belong to a later stage.
