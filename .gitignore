@@ -7,6 +7,9 @@ logs/
 # Generated Stage 7 synthetic fixtures (recreate with the generator)
 scenarios/generated/
 
+# Timed benchmark run outputs (recreate with agent-connector-benchmark)
+benchmarks/results/*/
+
 # Local pytest scratch (Windows Temp can be permission-locked)
 .pytest_tmp/
 

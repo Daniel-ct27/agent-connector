@@ -10,7 +10,8 @@ with three specialized agents:
 The current version includes the tested agent logic, generated gRPC contracts,
 three independently runnable local gRPC agent processes, matching unary
 HTTP/JSON FastAPI processes, a concurrent mixed-workflow orchestrator with a
-CLI (`grpc-stream`, `grpc-unary`, or `http-unary`), and a pluggable Log
+CLI (`grpc-stream`, `grpc-unary`, or `http-unary`), a Stage 7 benchmark harness
+(synthetic fixtures, timed matrix, summary CSV, charts), and a pluggable Log
 Analysis summarizer (deterministic by default, optional OpenAI live mode).
 
 ## How it currently works
@@ -216,6 +217,29 @@ then a combined incident report. Structured call/event records append to
 
 Exit status is `0` when every agent completes with `OK`, otherwise `1`.
 
+## Run Stage 7 benchmarks
+
+Start the gRPC and/or HTTP agent processes first (deterministic analyzer).
+Then run the locked matrix (payload sizes 100/1000/5000, concurrency 1/5/10,
+3 warm-ups + 30 timed trials per cell by default):
+
+```bash
+agent-connector-benchmark --generate-fixtures --summarize
+```
+
+Useful flags:
+
+```bash
+# Smoke cell only
+agent-connector-benchmark --payload-sizes 100 --concurrency 1 --warmup 0 --trials 2 --summarize
+
+# Aggregate an existing run
+agent-connector-benchmark --summary-only benchmarks/results/<run_id>/trials.csv
+```
+
+Each run writes `benchmarks/results/<run_id>/trials.csv`, `run_meta.json`,
+and with `--summarize` also `summary.csv` plus charts under `charts/`.
+
 ## Run the tests
 
 ```bash
@@ -271,13 +295,15 @@ src/agent_connector/grpc_services/  Thin async gRPC adapters
 src/agent_connector/http_services/  Thin FastAPI unary adapters
 src/agent_connector/servers/        Independently runnable agent processes
 src/agent_connector/orchestrator/   Concurrent stream/unary workflows and CLI
+src/agent_connector/benchmarks/     Synthetic fixtures, timed runner, summary/charts
 src/agent_connector/protocol/       Domain/protobuf conversion functions
 src/agent_connector/runbooks/       Local troubleshooting catalog
 tests/unit/                         Unit and contract tests
 tests/integration/                  Real-channel gRPC/HTTP integration tests
+benchmarks/results/                 Timed run outputs (gitignored per run id)
 ```
 
 ## Current limitations
 
-Benchmarks, multi-size synthetic datasets, charts, and the written evaluation
-belong to a later stage.
+Written evaluation, presentation, and demo script polish belong to Stage 8.
+Keep live LLM mode out of transport benchmark runs.
