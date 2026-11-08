@@ -1,4 +1,4 @@
-"""CLI entry point for the mixed gRPC incident workflow."""
+"""CLI entry point for incident orchestration workflows."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from agent_connector.config import (
 from agent_connector.domain.models import IncidentRequest, LogAnalysisEvent
 from agent_connector.orchestrator.jsonl import normalize_jsonl_path
 from agent_connector.orchestrator.orchestrate import AgentEndpoints, orchestrate
+from agent_connector.orchestrator.orchestrate_unary import (
+    HttpAgentEndpoints,
+    orchestrate_unary,
+)
 
 
 def _print_stream_event(event: LogAnalysisEvent) -> None:
@@ -76,8 +80,8 @@ def _print_report(report) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Run the concurrent mixed gRPC incident workflow "
-            "(Severity + Runbook + Log Analysis stream)."
+            "Run a concurrent incident workflow. Default is the mixed gRPC "
+            "stream demo; unary gRPC/HTTP paths support Stage 6 comparison."
         )
     )
     parser.add_argument(
@@ -86,19 +90,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to an IncidentRequest JSON fixture",
     )
     parser.add_argument(
+        "--transport",
+        choices=("grpc-stream", "grpc-unary", "http-unary"),
+        default="grpc-stream",
+        help="Workflow transport (default: grpc-stream)",
+    )
+    parser.add_argument(
         "--severity-target",
-        default=AgentEndpoints().severity,
-        help="Severity gRPC target (host:port)",
+        default=None,
+        help="Severity target (gRPC host:port or HTTP base URL)",
     )
     parser.add_argument(
         "--runbook-target",
-        default=AgentEndpoints().runbook,
-        help="Runbook gRPC target (host:port)",
+        default=None,
+        help="Runbook target (gRPC host:port or HTTP base URL)",
     )
     parser.add_argument(
         "--log-analysis-target",
-        default=AgentEndpoints().log_analysis,
-        help="Log Analysis gRPC target (host:port)",
+        default=None,
+        help="Log Analysis target (gRPC host:port or HTTP base URL)",
     )
     parser.add_argument(
         "--jsonl",
@@ -117,13 +127,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--unary-deadline",
         type=float,
         default=UNARY_DEADLINE_SECONDS,
-        help="Unary RPC deadline in seconds (must be > 0)",
+        help="Unary call deadline in seconds (must be > 0)",
     )
     parser.add_argument(
         "--stream-deadline",
         type=float,
         default=STREAM_DEADLINE_SECONDS,
-        help="Log Analysis stream deadline in seconds (must be > 0)",
+        help="Log Analysis stream deadline in seconds (grpc-stream only)",
     )
     return parser
 
@@ -135,6 +145,24 @@ def resolve_jsonl_path(*, jsonl: str, no_jsonl: bool) -> Path | None:
     return normalize_jsonl_path(jsonl)
 
 
+def _grpc_endpoints(args: argparse.Namespace) -> AgentEndpoints:
+    defaults = AgentEndpoints()
+    return AgentEndpoints(
+        severity=args.severity_target or defaults.severity,
+        runbook=args.runbook_target or defaults.runbook,
+        log_analysis=args.log_analysis_target or defaults.log_analysis,
+    )
+
+
+def _http_endpoints(args: argparse.Namespace) -> HttpAgentEndpoints:
+    defaults = HttpAgentEndpoints()
+    return HttpAgentEndpoints(
+        severity=args.severity_target or defaults.severity,
+        runbook=args.runbook_target or defaults.runbook,
+        log_analysis=args.log_analysis_target or defaults.log_analysis,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -143,30 +171,50 @@ def main(argv: list[str] | None = None) -> int:
         print(f"fixture not found: {args.fixture}", file=sys.stderr)
         return 2
 
-    if args.unary_deadline <= 0 or args.stream_deadline <= 0:
+    if args.unary_deadline <= 0:
+        print("deadlines must be greater than 0", file=sys.stderr)
+        return 2
+    if args.transport == "grpc-stream" and args.stream_deadline <= 0:
         print("deadlines must be greater than 0", file=sys.stderr)
         return 2
 
     request = IncidentRequest.model_validate(
         json.loads(args.fixture.read_text(encoding="utf-8"))
     )
-    endpoints = AgentEndpoints(
-        severity=args.severity_target,
-        runbook=args.runbook_target,
-        log_analysis=args.log_analysis_target,
-    )
     jsonl_path = resolve_jsonl_path(jsonl=args.jsonl, no_jsonl=args.no_jsonl)
 
-    report = asyncio.run(
-        orchestrate(
-            request,
-            endpoints=endpoints,
-            unary_deadline_s=args.unary_deadline,
-            stream_deadline_s=args.stream_deadline,
-            jsonl_path=jsonl_path,
-            on_stream_event=_print_stream_event,
+    if args.transport == "grpc-stream":
+        report = asyncio.run(
+            orchestrate(
+                request,
+                endpoints=_grpc_endpoints(args),
+                unary_deadline_s=args.unary_deadline,
+                stream_deadline_s=args.stream_deadline,
+                jsonl_path=jsonl_path,
+                on_stream_event=_print_stream_event,
+            )
         )
-    )
+    elif args.transport == "grpc-unary":
+        report = asyncio.run(
+            orchestrate_unary(
+                request,
+                transport="grpc",
+                grpc_endpoints=_grpc_endpoints(args),
+                unary_deadline_s=args.unary_deadline,
+                jsonl_path=jsonl_path,
+            )
+        )
+    else:
+        report = asyncio.run(
+            orchestrate_unary(
+                request,
+                transport="http",
+                http_endpoints=_http_endpoints(args),
+                unary_deadline_s=args.unary_deadline,
+                jsonl_path=jsonl_path,
+            )
+        )
+
     _print_report(report)
     return 1 if report.partial else 0
 
