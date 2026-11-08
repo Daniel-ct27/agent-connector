@@ -15,7 +15,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from agent_connector.config import UNARY_DEADLINE_SECONDS
+from agent_connector.benchmarks.fixtures import generate_incident
+from agent_connector.config import (
+    BENCHMARK_CONCURRENCY_LEVELS,
+    BENCHMARK_PAYLOAD_SIZES,
+    MAX_LOG_ENTRIES,
+    UNARY_DEADLINE_SECONDS,
+)
 from agent_connector.demo.process_manager import ProcessManager
 from agent_connector.domain.models import IncidentRequest, IncidentReport
 from agent_connector.orchestrator import (
@@ -33,15 +39,17 @@ FIXTURES_DIR = REPO_ROOT / "scenarios" / "fixtures"
 manager = ProcessManager()
 
 
-class AnalyzeRequest(BaseModel):
+class WorkloadRequest(BaseModel):
+    """Interactive demo workload selection."""
+
     transport: str = Field(
         default="grpc-stream",
         pattern="^(grpc-stream|grpc-unary|http-unary)$",
     )
+    source: str = Field(default="generated", pattern="^(fixture|generated)$")
     fixture: str = "inc-db-001.json"
-    analyzer_note: str = (
-        "Agents must already be running; analyzer is chosen at agent process start."
-    )
+    payload_size: int = Field(default=1000, ge=1, le=MAX_LOG_ENTRIES)
+    concurrency: int = Field(default=1, ge=1, le=20)
 
 
 def create_demo_app() -> FastAPI:
@@ -112,18 +120,30 @@ def create_demo_app() -> FastAPI:
     @app.get("/api/fixtures")
     async def fixtures() -> dict:
         names = sorted(path.name for path in FIXTURES_DIR.glob("inc-*.json"))
-        return {"fixtures": names}
+        return {
+            "fixtures": names,
+            "payload_sizes": list(BENCHMARK_PAYLOAD_SIZES),
+            "concurrency_levels": list(BENCHMARK_CONCURRENCY_LEVELS),
+            "max_log_entries": MAX_LOG_ENTRIES,
+        }
 
     @app.get("/api/summary")
     async def summary() -> dict:
         path = REPORT_DIR / "summary.csv"
         if not path.is_file():
-            return {"rows": [], "note": "report/summary.csv not found"}
+            return {"rows": [], "note": "report/summary.csv not found", "charts": {}}
         with path.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
-        return {"rows": rows, "source": "report/summary.csv"}
+        return {
+            "rows": rows,
+            "source": "report/summary.csv",
+            "charts": _chart_payloads(rows),
+        }
 
-    async def _run_transport(transport: str, request: IncidentRequest) -> tuple[IncidentReport, float]:
+    async def _run_transport(
+        transport: str,
+        request: IncidentRequest,
+    ) -> tuple[IncidentReport, float]:
         started = time.perf_counter()
         if transport == "grpc-stream":
             report = await orchestrate(
@@ -151,49 +171,212 @@ def create_demo_app() -> FastAPI:
         latency_ms = (time.perf_counter() - started) * 1000.0
         return report, latency_ms
 
-    def _load_fixture(name: str) -> IncidentRequest:
-        fixture_path = FIXTURES_DIR / name
-        if not fixture_path.is_file():
-            raise HTTPException(status_code=404, detail=f"fixture not found: {name}")
-        return IncidentRequest.model_validate(
-            json.loads(fixture_path.read_text(encoding="utf-8"))
-        )
+    def _resolve_request(body: WorkloadRequest) -> IncidentRequest:
+        if body.source == "fixture":
+            fixture_path = FIXTURES_DIR / body.fixture
+            if not fixture_path.is_file():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"fixture not found: {body.fixture}",
+                )
+            return IncidentRequest.model_validate(
+                json.loads(fixture_path.read_text(encoding="utf-8"))
+            )
+        try:
+            return generate_incident(body.payload_size)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    async def _wave(
+        transport: str,
+        base: IncidentRequest,
+        concurrency: int,
+    ) -> dict:
+        started = time.perf_counter()
+
+        async def one(index: int) -> tuple[IncidentReport, float]:
+            request = base.model_copy(
+                update={"incident_id": f"{base.incident_id}-c{concurrency}-i{index}"}
+            )
+            return await _run_transport(transport, request)
+
+        results = await asyncio.gather(*[one(i) for i in range(concurrency)])
+        wall_ms = (time.perf_counter() - started) * 1000.0
+        reports = [item[0] for item in results]
+        latencies = [item[1] for item in results]
+        return {
+            "wall_latency_ms": round(wall_ms, 3),
+            "mean_request_latency_ms": round(sum(latencies) / len(latencies), 3),
+            "partial": any(report.partial for report in reports),
+            "report": reports[0].model_dump(mode="json"),
+            "concurrency": concurrency,
+        }
 
     @app.post("/api/analyze")
-    async def analyze(body: AnalyzeRequest) -> dict:
-        request = _load_fixture(body.fixture)
-        report, latency_ms = await _run_transport(body.transport, request)
+    async def analyze(body: WorkloadRequest) -> dict:
+        request = _resolve_request(body)
+        wave = await _wave(body.transport, request, body.concurrency)
         return {
             "transport": body.transport,
-            "fixture": body.fixture,
-            "latency_ms": round(latency_ms, 3),
-            "report": report.model_dump(mode="json"),
+            "source": body.source,
+            "fixture": body.fixture if body.source == "fixture" else None,
+            "payload_size": (
+                body.payload_size
+                if body.source == "generated"
+                else len(request.logs)
+            ),
+            "concurrency": body.concurrency,
+            "latency_ms": wave["wall_latency_ms"],
+            "mean_request_latency_ms": wave["mean_request_latency_ms"],
+            "partial": wave["partial"],
+            "report": wave["report"],
         }
 
     @app.post("/api/compare")
-    async def compare(body: AnalyzeRequest) -> dict:
-        """Run unary gRPC and HTTP on the same fixture for a live side-by-side demo."""
-        request = _load_fixture(body.fixture)
-        (grpc_report, grpc_ms), (http_report, http_ms) = await asyncio.gather(
-            _run_transport("grpc-unary", request),
-            _run_transport("http-unary", request),
+    async def compare(body: WorkloadRequest) -> dict:
+        """Run unary gRPC and HTTP on the same workload side-by-side."""
+        request = _resolve_request(body)
+        grpc_wave, http_wave = await asyncio.gather(
+            _wave("grpc-unary", request, body.concurrency),
+            _wave("http-unary", request, body.concurrency),
         )
+        grpc_ms = grpc_wave["wall_latency_ms"]
+        http_ms = http_wave["wall_latency_ms"]
         speedup = (http_ms / grpc_ms) if grpc_ms > 0 else None
         return {
-            "fixture": body.fixture,
-            "grpc": {
-                "latency_ms": round(grpc_ms, 3),
-                "partial": grpc_report.partial,
-                "report": grpc_report.model_dump(mode="json"),
-            },
-            "http": {
-                "latency_ms": round(http_ms, 3),
-                "partial": http_report.partial,
-                "report": http_report.model_dump(mode="json"),
-            },
+            "source": body.source,
+            "fixture": body.fixture if body.source == "fixture" else None,
+            "payload_size": (
+                body.payload_size
+                if body.source == "generated"
+                else len(request.logs)
+            ),
+            "concurrency": body.concurrency,
+            "log_count": len(request.logs),
+            "grpc": grpc_wave,
+            "http": http_wave,
             "http_over_grpc_ratio": (
                 None if speedup is None else round(speedup, 2)
             ),
         }
 
     return app
+
+
+def _chart_payloads(rows: list[dict[str, str]]) -> dict:
+    """Shape summary rows for interactive Chart.js series."""
+
+    def _num(row: dict[str, str], key: str) -> float | None:
+        value = row.get(key, "")
+        if value in ("", None):
+            return None
+        return float(value)
+
+    latency_labels = sorted(
+        {
+            int(row["payload_size"])
+            for row in rows
+            if row["concurrency"] == "1"
+            and row["transport"] in {"grpc", "http"}
+        }
+    )
+    latency_grpc = []
+    latency_http = []
+    for size in latency_labels:
+        grpc = next(
+            (
+                _num(row, "median_latency_ms")
+                for row in rows
+                if row["transport"] == "grpc"
+                and row["concurrency"] == "1"
+                and int(row["payload_size"]) == size
+            ),
+            None,
+        )
+        http = next(
+            (
+                _num(row, "median_latency_ms")
+                for row in rows
+                if row["transport"] == "http"
+                and row["concurrency"] == "1"
+                and int(row["payload_size"]) == size
+            ),
+            None,
+        )
+        latency_grpc.append(grpc)
+        latency_http.append(http)
+
+    throughput_labels = sorted(
+        {
+            int(row["concurrency"])
+            for row in rows
+            if row["payload_size"] == "1000"
+            and row["transport"] in {"grpc", "http"}
+        }
+    )
+    throughput_grpc = []
+    throughput_http = []
+    for level in throughput_labels:
+        throughput_grpc.append(
+            next(
+                (
+                    _num(row, "throughput_rps")
+                    for row in rows
+                    if row["transport"] == "grpc"
+                    and row["payload_size"] == "1000"
+                    and int(row["concurrency"]) == level
+                ),
+                None,
+            )
+        )
+        throughput_http.append(
+            next(
+                (
+                    _num(row, "throughput_rps")
+                    for row in rows
+                    if row["transport"] == "http"
+                    and row["payload_size"] == "1000"
+                    and int(row["concurrency"]) == level
+                ),
+                None,
+            )
+        )
+
+    ttfe_labels = sorted(
+        {
+            int(row["payload_size"])
+            for row in rows
+            if row["transport"] == "grpc-stream" and row["concurrency"] == "1"
+        }
+    )
+    ttfe_values = []
+    for size in ttfe_labels:
+        ttfe_values.append(
+            next(
+                (
+                    _num(row, "median_ttfe_ms")
+                    for row in rows
+                    if row["transport"] == "grpc-stream"
+                    and row["concurrency"] == "1"
+                    and int(row["payload_size"]) == size
+                ),
+                None,
+            )
+        )
+
+    return {
+        "latency": {
+            "labels": latency_labels,
+            "grpc": latency_grpc,
+            "http": latency_http,
+        },
+        "throughput": {
+            "labels": throughput_labels,
+            "grpc": throughput_grpc,
+            "http": throughput_http,
+        },
+        "ttfe": {
+            "labels": ttfe_labels,
+            "values": ttfe_values,
+        },
+    }

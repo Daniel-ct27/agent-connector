@@ -71,10 +71,13 @@ Point out: Severity/Runbook still present, Log Analysis `UNAVAILABLE`,
 
 ## 6. Point to scored evidence (1–2 min)
 
-Open `report/EVALUATION.md` and `report/charts/`:
+In the demo panel, scroll to **Scored evidence** — interactive Chart.js
+plots (hover for exact values) driven by `report/summary.csv`.
+PNG exports under `report/charts/` remain for slides / `EVALUATION.md`.
 
-- Unary latency chart: gRPC vs HTTP
-- Stream TTFE chart: early updates on long Log Analysis
+- Unary latency: gRPC vs HTTP vs payload
+- Unary throughput: gRPC vs HTTP vs concurrency
+- Stream TTFE: time to first event vs payload
 
 ## 7. Optional live LLM step (~2 min)
 

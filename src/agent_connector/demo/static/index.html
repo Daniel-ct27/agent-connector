@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --ink: #121814;
@@ -21,7 +22,6 @@
       --shadow: 0 18px 50px rgba(18, 24, 20, 0.08);
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       color: var(--ink);
@@ -31,22 +31,20 @@
         linear-gradient(180deg, #eef2ea 0%, var(--paper) 42%, #dde5d8 100%);
       min-height: 100vh;
     }
-    .wrap { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; }
+    .wrap { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding-bottom: 2.5rem; }
     .reveal { opacity: 0; transform: translateY(18px); animation: up 0.7s ease forwards; }
     .reveal.d2 { animation-delay: 0.12s; }
     .reveal.d3 { animation-delay: 0.24s; }
-    .reveal.d4 { animation-delay: 0.36s; }
     @keyframes up { to { opacity: 1; transform: none; } }
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(207, 239, 58, 0.55); }
       50% { box-shadow: 0 0 0 10px rgba(207, 239, 58, 0); }
     }
-    @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
     .hero {
-      padding: 2.4rem 0 1.4rem;
+      padding: 2.2rem 0 1.3rem;
       display: grid;
-      gap: 1.4rem;
+      gap: 1.2rem;
     }
     @media (min-width: 900px) {
       .hero { grid-template-columns: 1.35fr 0.85fr; align-items: end; }
@@ -68,7 +66,7 @@
     .question {
       margin: 1rem 0 0;
       max-width: 36rem;
-      font-size: 1.08rem;
+      font-size: 1.05rem;
       line-height: 1.45;
       color: var(--mute);
     }
@@ -99,7 +97,7 @@
     .lab {
       display: grid;
       gap: 1rem;
-      margin-bottom: 1.4rem;
+      margin-bottom: 1.2rem;
     }
     @media (min-width: 960px) {
       .lab { grid-template-columns: 0.92fr 1.08fr; }
@@ -117,10 +115,32 @@
       font-size: 1.15rem;
       letter-spacing: -0.02em;
     }
-    .hint { margin: 0.35rem 0 0; color: var(--mute); font-size: 0.84rem; }
-
-    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
-    button, select {
+    .field-grid {
+      display: grid;
+      gap: 0.65rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 0.85rem;
+    }
+    label {
+      display: grid;
+      gap: 0.28rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    select, input[type="number"] {
+      width: 100%;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.55rem 0.85rem;
+    }
+    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    button {
       font: inherit;
       border-radius: 999px;
       border: 1px solid var(--line);
@@ -131,22 +151,23 @@
       transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
     }
     button:hover { transform: translateY(-1px); border-color: #9aa893; }
-    button:active { transform: translateY(0); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
     button.primary {
       background: var(--ink);
       color: var(--signal);
       border-color: var(--ink);
       font-weight: 600;
     }
-    button.grpc { background: #dff3ea; border-color: #9dceb8; color: var(--grpc); font-weight: 600; }
-    button.http { background: #f8e8d4; border-color: #e2bb84; color: var(--http); font-weight: 600; }
-    button.danger { background: #fde8ee; border-color: #efb4c3; color: var(--danger); }
     button.live {
       animation: pulse 1.6s infinite;
       background: var(--signal);
       border-color: #a8c61f;
       font-weight: 700;
     }
+    button.grpc { background: #dff3ea; border-color: #9dceb8; color: var(--grpc); font-weight: 600; }
+    button.http { background: #f8e8d4; border-color: #e2bb84; color: var(--http); font-weight: 600; }
+    button.danger { background: #fde8ee; border-color: #efb4c3; color: var(--danger); }
+    button.quiet { color: var(--mute); }
 
     .server-list { display: grid; gap: 0.45rem; }
     .server {
@@ -159,8 +180,12 @@
       border-radius: 12px;
       background: #fff;
     }
-    .server .meta { font-size: 0.9rem; }
-    .server .meta small { display: block; color: var(--mute); font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; }
+    .server .meta small {
+      display: block;
+      color: var(--mute);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+    }
     .pill {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.72rem;
@@ -173,18 +198,7 @@
     .mini { display: flex; gap: 0.35rem; }
     .mini button { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
 
-    .race-head {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.85rem;
-    }
-    .race-grid {
-      display: grid;
-      gap: 0.75rem;
-    }
+    .race-grid { display: grid; gap: 0.75rem; }
     @media (min-width: 700px) {
       .race-grid { grid-template-columns: 1fr 1fr; }
     }
@@ -193,7 +207,7 @@
       border: 1px solid var(--line);
       background: #fff;
       padding: 0.9rem;
-      min-height: 180px;
+      min-height: 170px;
     }
     .lane.grpc { border-top: 4px solid var(--grpc); }
     .lane.http { border-top: 4px solid var(--http); }
@@ -210,21 +224,13 @@
       line-height: 1;
     }
     .lane .ms span { font-size: 0.9rem; color: var(--mute); margin-left: 0.2rem; }
-    .bar-wrap {
-      margin-top: 0.85rem;
-      height: 10px;
-      background: #e7ebe3;
-      border-radius: 999px;
-      overflow: hidden;
+    .findings {
+      margin-top: 0.7rem;
+      font-size: 0.86rem;
+      color: var(--mute);
+      line-height: 1.4;
     }
-    .bar {
-      height: 100%;
-      width: 100%;
-      transform-origin: left center;
-      animation: barGrow 0.7s ease;
-    }
-    .bar.grpc { background: var(--grpc); }
-    .bar.http { background: var(--http); }
+    .findings b { color: var(--ink); }
     .ratio {
       margin-top: 0.85rem;
       padding: 0.75rem 0.85rem;
@@ -234,41 +240,48 @@
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.95rem;
     }
-    .findings {
-      display: grid;
-      gap: 0.4rem;
-      margin-top: 0.75rem;
-      font-size: 0.86rem;
+    .msg {
+      min-height: 1.2rem;
+      margin-top: 0.55rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
       color: var(--mute);
     }
-    .findings b { color: var(--ink); }
+    .hidden { display: none !important; }
 
-    .evidence { margin: 0.4rem 0 2rem; }
-    .evidence h3 {
+    .chart-card {
+      margin-top: 0.85rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.75rem 0.85rem 0.9rem;
+      min-height: 250px;
+      box-shadow: var(--shadow);
+    }
+    .chart-card h4 {
+      margin: 0 0 0.55rem;
+      font-family: Syne, sans-serif;
+      font-size: 0.95rem;
+    }
+    .chart-wrap { position: relative; height: 220px; }
+    .evidence { margin: 0.5rem 0 0; }
+    .evidence > h3 {
       font-family: Syne, sans-serif;
       font-size: 1.35rem;
-      margin: 0 0 0.75rem;
+      margin: 0 0 0.35rem;
     }
-    .charts {
+    .evidence .sub {
+      margin: 0 0 0.9rem;
+      color: var(--mute);
+      max-width: 42rem;
+      font-size: 0.95rem;
+    }
+    .chart-grid {
       display: grid;
       gap: 0.8rem;
     }
     @media (min-width: 900px) {
-      .charts { grid-template-columns: repeat(3, 1fr); }
-    }
-    figure {
-      margin: 0;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-    figure img { display: block; width: 100%; background: #fff; }
-    figcaption {
-      padding: 0.55rem 0.7rem 0.7rem;
-      font-size: 0.82rem;
-      color: var(--mute);
+      .chart-grid { grid-template-columns: repeat(3, 1fr); }
     }
     table {
       width: 100%;
@@ -280,15 +293,13 @@
       overflow: hidden;
       font-size: 0.88rem;
     }
-    th, td { padding: 0.55rem 0.65rem; border-bottom: 1px solid var(--line); text-align: left; }
-    th { background: #eef2ea; font-weight: 600; }
-    .msg {
-      min-height: 1.2rem;
-      margin-top: 0.55rem;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.78rem;
-      color: var(--mute);
+    th, td {
+      padding: 0.55rem 0.65rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-variant-numeric: tabular-nums;
     }
+    th { background: #eef2ea; font-weight: 600; }
     details {
       margin-top: 0.8rem;
       border: 1px solid var(--line);
@@ -316,85 +327,127 @@
       <div class="reveal">
         <p class="brand">Agent<br />Connector<span>.</span></p>
         <p class="question">
-          <strong>Research demo:</strong> for the same incident workload, how does
-          <strong>gRPC</strong> compare with <strong>HTTP/JSON</strong> — and what does
-          server streaming add for Log Analysis?
+          <strong>Research demo:</strong> same incident agents, different transports.
+          Compare <strong>gRPC</strong> and <strong>HTTP/JSON</strong> under a load you choose,
+          then inspect interactive Stage&nbsp;7 evidence.
         </p>
       </div>
       <aside class="hero-side reveal d2">
-        <h2>Professor walkthrough</h2>
+        <h2>Demo path</h2>
         <ol>
-          <li>Start gRPC + HTTP agents with the buttons.</li>
-          <li>Hit <em>Race protocols</em> for a live side-by-side timing.</li>
-          <li>Scroll to scored charts (810 timed trials).</li>
-          <li>Optional: stream demo shows progressive Log Analysis updates.</li>
+          <li>Start gRPC + HTTP stacks</li>
+          <li>Pick payload / concurrency</li>
+          <li>Race unary — chart updates every run</li>
+          <li>Scroll to scored evidence</li>
         </ol>
       </aside>
     </header>
 
-    <section class="lab">
-      <div class="panel reveal d2">
-        <h3>1 · Bring the agents online</h3>
+    <div class="lab">
+      <section class="panel reveal d2">
+        <h3>Processes</h3>
         <div class="controls">
-          <button class="grpc" id="start-grpc">Start gRPC stack</button>
-          <button class="http" id="start-http">Start HTTP stack</button>
-          <button class="danger" id="stop-all">Stop all</button>
+          <button class="grpc" id="start-grpc" type="button">Start gRPC</button>
+          <button class="http" id="start-http" type="button">Start HTTP</button>
+          <button class="danger" id="stop-all" type="button">Stop all</button>
         </div>
         <div class="server-list" id="server-list"></div>
         <p class="msg" id="server-msg"></p>
-        <p class="hint">Localhost only. Processes are managed by this panel and stop when you close it.</p>
-      </div>
+      </section>
 
-      <div class="panel reveal d3">
-        <div class="race-head">
-          <h3>2 · Live protocol race</h3>
-          <div class="controls" style="margin:0">
+      <section class="panel reveal d3">
+        <h3>Workload</h3>
+        <div class="field-grid">
+          <label>
+            Source
+            <select id="source">
+              <option value="generated">Generated synthetic load</option>
+              <option value="fixture">Saved scenario fixture</option>
+            </select>
+          </label>
+          <label id="fixture-field" class="hidden">
+            Fixture
             <select id="fixture"></select>
-            <button class="live" id="race">Race protocols</button>
-            <button id="stream">Stream demo</button>
-          </div>
+          </label>
+          <label id="payload-field">
+            Log lines
+            <select id="payload">
+              <option value="100">100</option>
+              <option value="1000" selected>1,000</option>
+              <option value="5000">5,000</option>
+            </select>
+          </label>
+          <label id="payload-custom-field">
+            Custom log lines
+            <input id="payload-custom" type="number" min="1" max="5000" placeholder="or type 250–5000" />
+          </label>
+          <label>
+            Concurrency
+            <select id="concurrency">
+              <option value="1" selected>1</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <label>
+            Stream transport
+            <select id="stream-transport">
+              <option value="grpc-stream">gRPC server stream</option>
+            </select>
+          </label>
+        </div>
+        <div class="controls">
+          <button class="live" id="race" type="button">Compare unary gRPC vs HTTP</button>
+          <button class="primary" id="stream" type="button">Run stream path</button>
         </div>
         <div class="race-grid">
           <div class="lane grpc">
             <div class="label">gRPC unary</div>
             <div class="ms" id="grpc-ms">—<span>ms</span></div>
-            <div class="bar-wrap"><div class="bar grpc" id="grpc-bar" style="width:0%"></div></div>
-            <div class="findings" id="grpc-findings">Waiting for a race…</div>
+            <div class="findings" id="grpc-findings">No run yet.</div>
           </div>
           <div class="lane http">
             <div class="label">HTTP / JSON unary</div>
             <div class="ms" id="http-ms">—<span>ms</span></div>
-            <div class="bar-wrap"><div class="bar http" id="http-bar" style="width:0%"></div></div>
-            <div class="findings" id="http-findings">Same fixture. Same agents. Different transport.</div>
+            <div class="findings" id="http-findings">Same workload, JSON over HTTP.</div>
           </div>
         </div>
-        <div class="ratio" id="ratio">Ratio appears after a race — HTTP latency ÷ gRPC latency</div>
+        <div class="ratio" id="ratio">Set a load, start both stacks, then compare.</div>
+        <div class="chart-card">
+          <h4>This session — updates after every run</h4>
+          <div class="chart-wrap"><canvas id="chart-live"></canvas></div>
+          <div class="controls" style="margin:0.55rem 0 0">
+            <button class="quiet" id="clear-live" type="button">Clear session chart</button>
+            <button class="quiet" id="reload-evidence" type="button">Reload scored charts</button>
+          </div>
+        </div>
         <p class="msg" id="run-msg"></p>
         <details>
-          <summary>Raw report JSON</summary>
+          <summary>Raw response</summary>
           <pre id="report">{}</pre>
         </details>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <section class="evidence reveal d4">
-      <h3>3 · Scored evidence (Stage 7)</h3>
-      <p class="hint" style="margin-bottom:0.85rem">
-        810 timed trials · deterministic analyzer · payloads 100 / 1k / 5k · concurrency 1 / 5 / 10
+    <section class="evidence panel">
+      <h3>Scored evidence</h3>
+      <p class="sub">
+        Interactive Chart.js from <code>report/summary.csv</code> (810 timed trials).
+        Reloads after each demo run so a fresh benchmark export shows without a page refresh.
       </p>
-      <div class="charts">
-        <figure>
-          <img src="/charts/unary_latency_vs_payload.png" alt="Unary latency vs payload" />
-          <figcaption>Unary median latency — gRPC stays faster as payload grows</figcaption>
-        </figure>
-        <figure>
-          <img src="/charts/unary_throughput_vs_concurrency.png" alt="Throughput vs concurrency" />
-          <figcaption>Throughput under concurrency (payload 1000)</figcaption>
-        </figure>
-        <figure>
-          <img src="/charts/stream_ttfe_vs_payload.png" alt="Stream TTFE" />
-          <figcaption>Streaming value: time-to-first Log Analysis event</figcaption>
-        </figure>
+      <div class="chart-grid">
+        <div class="chart-card" style="margin-top:0">
+          <h4>Median latency vs payload</h4>
+          <div class="chart-wrap"><canvas id="chart-latency"></canvas></div>
+        </div>
+        <div class="chart-card" style="margin-top:0">
+          <h4>Throughput vs concurrency</h4>
+          <div class="chart-wrap"><canvas id="chart-throughput"></canvas></div>
+        </div>
+        <div class="chart-card" style="margin-top:0">
+          <h4>Stream time to first event</h4>
+          <div class="chart-wrap"><canvas id="chart-ttfe"></canvas></div>
+        </div>
       </div>
       <table>
         <thead>
@@ -413,10 +466,28 @@
     const serverList = document.getElementById("server-list");
     const serverMsg = document.getElementById("server-msg");
     const runMsg = document.getElementById("run-msg");
+    const sourceEl = document.getElementById("source");
     const fixtureEl = document.getElementById("fixture");
+    const fixtureField = document.getElementById("fixture-field");
+    const payloadField = document.getElementById("payload-field");
+    const payloadCustomField = document.getElementById("payload-custom-field");
+    const payloadEl = document.getElementById("payload");
+    const payloadCustom = document.getElementById("payload-custom");
+    const concurrencyEl = document.getElementById("concurrency");
     const reportEl = document.getElementById("report");
     const summaryBody = document.getElementById("summary-body");
     const summaryMsg = document.getElementById("summary-msg");
+
+    let charts = { latency: null, throughput: null, ttfe: null };
+    let liveChart = null;
+    let liveRun = 0;
+
+    const chartColors = {
+      grpc: "#0b6e4f",
+      http: "#b45309",
+      ink: "#121814",
+      signal: "#cfef3a",
+    };
 
     async function api(path, options = {}) {
       const res = await fetch(path, {
@@ -425,24 +496,44 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const detail = typeof data.detail === "string" ? data.detail : res.statusText;
-        throw new Error(detail);
+        throw new Error(typeof data.detail === "string" ? data.detail : res.statusText);
       }
       return data;
     }
 
-    function outcomeLine(report) {
+    function workloadBody(extra = {}) {
+      const source = sourceEl.value;
+      const custom = Number(payloadCustom.value);
+      const payload_size = Number.isFinite(custom) && custom > 0
+        ? custom
+        : Number(payloadEl.value);
+      return {
+        source,
+        fixture: fixtureEl.value,
+        payload_size,
+        concurrency: Number(concurrencyEl.value),
+        ...extra,
+      };
+    }
+
+    function syncSource() {
+      const generated = sourceEl.value === "generated";
+      fixtureField.classList.toggle("hidden", generated);
+      payloadField.classList.toggle("hidden", !generated);
+      payloadCustomField.classList.toggle("hidden", !generated);
+    }
+
+    function findings(report, wallMs, meanMs, concurrency) {
       if (!report) return "No report";
-      const parts = (report.agent_outcomes || []).map(
-        (o) => `${o.name}: ${o.status}`
-      );
-      const sev = report.severity ? `severity=${report.severity.level}` : "severity=—";
-      const cause = report.log_analysis?.likely_cause
-        ? report.log_analysis.likely_cause
-        : "no cause yet";
+      const statuses = (report.agent_outcomes || [])
+        .map((o) => `${o.name} ${o.status}`)
+        .join(" · ");
+      const sev = report.severity ? report.severity.level : "—";
+      const cause = report.log_analysis?.likely_cause || "no likely cause";
       return `<div><b>${sev}</b> · partial=${report.partial}</div>
-              <div>${parts.join(" · ")}</div>
-              <div>${cause}</div>`;
+        <div>wall ${wallMs.toFixed(1)} ms · mean req ${meanMs.toFixed(1)} ms · x${concurrency}</div>
+        <div>${statuses}</div>
+        <div>${cause}</div>`;
     }
 
     function renderServers(servers) {
@@ -451,24 +542,25 @@
         const row = document.createElement("div");
         row.className = "server";
         row.innerHTML = `
-          <div class="meta">${s.label}<small>:${s.port}</small></div>
-          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "up" : "down"}</span>
+          <div class="meta"><strong>${s.label}</strong><small>:${s.port}</small></div>
+          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "running" : "stopped"}</span>
           <div class="mini"></div>`;
         const mini = row.querySelector(".mini");
         const start = document.createElement("button");
+        start.type = "button";
         start.textContent = "Start";
-        start.className = s.kind === "grpc" ? "grpc" : "http";
         start.onclick = async () => {
           serverMsg.textContent = `Starting ${s.label}…`;
           try {
             await api(`/api/servers/${s.key}/start`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `${s.label} is up`;
+            serverMsg.textContent = `${s.label} running`;
             await refreshServers();
           } catch (err) { serverMsg.textContent = err.message; }
         };
         const stop = document.createElement("button");
+        stop.type = "button";
+        stop.className = "quiet";
         stop.textContent = "Stop";
-        stop.className = "danger";
         stop.onclick = async () => {
           try {
             await api(`/api/servers/${s.key}/stop`, { method: "POST", body: "{}" });
@@ -482,8 +574,7 @@
     }
 
     async function refreshServers() {
-      const data = await api("/api/servers");
-      renderServers(data.servers);
+      renderServers((await api("/api/servers")).servers);
     }
 
     async function loadFixtures() {
@@ -495,16 +586,143 @@
         opt.textContent = name.replace(".json", "");
         fixtureEl.appendChild(opt);
       }
+      payloadEl.innerHTML = "";
+      for (const size of data.payload_sizes) {
+        const opt = document.createElement("option");
+        opt.value = String(size);
+        opt.textContent = size.toLocaleString();
+        if (size === 1000) opt.selected = true;
+        payloadEl.appendChild(opt);
+      }
+      concurrencyEl.innerHTML = "";
+      for (const level of data.concurrency_levels) {
+        const opt = document.createElement("option");
+        opt.value = String(level);
+        opt.textContent = String(level);
+        if (level === 1) opt.selected = true;
+        concurrencyEl.appendChild(opt);
+      }
+      payloadCustom.max = data.max_log_entries;
+    }
+
+    function lineChart(canvasId, labels, datasets, xTitle) {
+      return new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) =>
+                  `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? ctx.parsed.y}`,
+              },
+            },
+          },
+          scales: {
+            x: { title: { display: true, text: xTitle }, grid: { color: "rgba(18,24,20,0.05)" } },
+            y: { beginAtZero: true, grid: { color: "rgba(18,24,20,0.07)" } },
+          },
+        },
+      });
+    }
+
+    function ensureLiveChart() {
+      if (liveChart) return liveChart;
+      liveChart = new Chart(document.getElementById("chart-live"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "gRPC wall ms",
+              data: [],
+              borderColor: chartColors.grpc,
+              backgroundColor: "rgba(11,110,79,0.12)",
+              tension: 0.2,
+              pointRadius: 4,
+              spanGaps: true,
+            },
+            {
+              label: "HTTP wall ms",
+              data: [],
+              borderColor: chartColors.http,
+              backgroundColor: "rgba(180,83,9,0.10)",
+              tension: 0.2,
+              pointRadius: 4,
+              spanGaps: true,
+            },
+            {
+              label: "gRPC stream wall ms",
+              data: [],
+              borderColor: chartColors.ink,
+              backgroundColor: "rgba(207,239,58,0.25)",
+              borderDash: [4, 3],
+              tension: 0.2,
+              pointRadius: 4,
+              spanGaps: true,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) =>
+                  `${ctx.dataset.label}: ${
+                    ctx.parsed.y == null ? "—" : ctx.parsed.y.toFixed(1)
+                  }`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { color: "rgba(18,24,20,0.05)" } },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "wall ms" },
+              grid: { color: "rgba(18,24,20,0.07)" },
+            },
+          },
+        },
+      });
+      return liveChart;
+    }
+
+    function pushLivePoint(label, { grpc = null, http = null, stream = null } = {}) {
+      const chart = ensureLiveChart();
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(grpc);
+      chart.data.datasets[1].data.push(http);
+      chart.data.datasets[2].data.push(stream);
+      chart.update();
+    }
+
+    function clearLiveChart() {
+      liveRun = 0;
+      if (!liveChart) {
+        ensureLiveChart();
+        return;
+      }
+      liveChart.data.labels = [];
+      liveChart.data.datasets.forEach((ds) => { ds.data = []; });
+      liveChart.update();
     }
 
     async function loadSummary() {
       const data = await api("/api/summary");
       summaryBody.innerHTML = "";
       if (!data.rows?.length) {
-        summaryMsg.textContent = data.note || "No summary.csv yet";
+        summaryMsg.textContent = data.note || "No summary.csv available yet";
         return;
       }
-      summaryMsg.textContent = `Source: ${data.source}`;
+      summaryMsg.textContent = `Loaded from ${data.source}`;
       const rows = data.rows.filter(
         (r) => r.concurrency === "1" && (r.transport === "grpc" || r.transport === "http")
       );
@@ -519,88 +737,188 @@
           <td>${r.success_rate}</td>`;
         summaryBody.appendChild(tr);
       }
+
+      const c = data.charts || {};
+      ["latency", "throughput", "ttfe"].forEach((key) => {
+        charts[key]?.destroy?.();
+        charts[key] = null;
+      });
+      charts.latency = lineChart(
+        "chart-latency",
+        c.latency?.labels || [],
+        [
+          {
+            label: "gRPC",
+            data: c.latency?.grpc || [],
+            borderColor: chartColors.grpc,
+            backgroundColor: "rgba(11,110,79,0.12)",
+            tension: 0.25,
+            pointRadius: 4,
+          },
+          {
+            label: "HTTP",
+            data: c.latency?.http || [],
+            borderColor: chartColors.http,
+            backgroundColor: "rgba(180,83,9,0.10)",
+            tension: 0.25,
+            pointRadius: 4,
+          },
+        ],
+        "payload (log lines)"
+      );
+      charts.throughput = lineChart(
+        "chart-throughput",
+        c.throughput?.labels || [],
+        [
+          {
+            label: "gRPC",
+            data: c.throughput?.grpc || [],
+            borderColor: chartColors.grpc,
+            backgroundColor: "rgba(11,110,79,0.12)",
+            tension: 0.25,
+            pointRadius: 4,
+          },
+          {
+            label: "HTTP",
+            data: c.throughput?.http || [],
+            borderColor: chartColors.http,
+            backgroundColor: "rgba(180,83,9,0.10)",
+            tension: 0.25,
+            pointRadius: 4,
+          },
+        ],
+        "concurrency (payload 1000)"
+      );
+      charts.ttfe = lineChart(
+        "chart-ttfe",
+        c.ttfe?.labels || [],
+        [
+          {
+            label: "TTFE",
+            data: c.ttfe?.values || [],
+            borderColor: chartColors.ink,
+            backgroundColor: "rgba(207,239,58,0.35)",
+            tension: 0.25,
+            pointRadius: 4,
+          },
+        ],
+        "payload (log lines)"
+      );
     }
 
-    function setLane(prefix, ms, report, maxMs) {
-      const msEl = document.getElementById(`${prefix}-ms`);
-      const bar = document.getElementById(`${prefix}-bar`);
-      const findings = document.getElementById(`${prefix}-findings`);
-      msEl.innerHTML = `${ms.toFixed(1)}<span>ms</span>`;
-      const pct = maxMs > 0 ? Math.max(8, (ms / maxMs) * 100) : 8;
-      bar.style.width = `${pct}%`;
-      bar.style.animation = "none";
-      void bar.offsetWidth;
-      bar.style.animation = "";
-      findings.innerHTML = outcomeLine(report);
+    async function afterRun() {
+      try { await loadSummary(); } catch (_) { /* keep prior */ }
     }
 
+    sourceEl.onchange = syncSource;
     document.getElementById("start-grpc").onclick = async () => {
-      serverMsg.textContent = "Starting gRPC stack…";
+      serverMsg.textContent = "Starting gRPC processes…";
       try {
         await api("/api/servers/start-grpc", { method: "POST", body: "{}" });
-        serverMsg.textContent = "gRPC stack up on :50051–50053";
+        serverMsg.textContent = "gRPC listening on 50051–50053";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
     document.getElementById("start-http").onclick = async () => {
-      serverMsg.textContent = "Starting HTTP stack…";
+      serverMsg.textContent = "Starting HTTP processes…";
       try {
         await api("/api/servers/start-http", { method: "POST", body: "{}" });
-        serverMsg.textContent = "HTTP stack up on :8001–8003";
+        serverMsg.textContent = "HTTP listening on 8001–8003";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
     document.getElementById("stop-all").onclick = async () => {
       try {
         await api("/api/servers/stop-all", { method: "POST", body: "{}" });
-        serverMsg.textContent = "All managed agents stopped";
+        serverMsg.textContent = "Stopped managed processes";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
 
+    document.getElementById("clear-live").onclick = () => {
+      clearLiveChart();
+      runMsg.textContent = "Session chart cleared";
+    };
+    document.getElementById("reload-evidence").onclick = async () => {
+      try {
+        await loadSummary();
+        runMsg.textContent = "Scored charts reloaded";
+      } catch (err) {
+        runMsg.textContent = err.message;
+      }
+    };
+
     document.getElementById("race").onclick = async () => {
-      runMsg.textContent = "Racing unary gRPC vs HTTP on the same fixture…";
+      runMsg.textContent = "Comparing unary transports…";
       try {
         const data = await api("/api/compare", {
           method: "POST",
-          body: JSON.stringify({ fixture: fixtureEl.value }),
+          body: JSON.stringify(workloadBody()),
         });
-        const maxMs = Math.max(data.grpc.latency_ms, data.http.latency_ms);
-        setLane("grpc", data.grpc.latency_ms, data.grpc.report, maxMs);
-        setLane("http", data.http.latency_ms, data.http.report, maxMs);
+        document.getElementById("grpc-ms").innerHTML =
+          `${data.grpc.wall_latency_ms.toFixed(1)}<span>ms</span>`;
+        document.getElementById("http-ms").innerHTML =
+          `${data.http.wall_latency_ms.toFixed(1)}<span>ms</span>`;
+        document.getElementById("grpc-findings").innerHTML = findings(
+          data.grpc.report,
+          data.grpc.wall_latency_ms,
+          data.grpc.mean_request_latency_ms,
+          data.concurrency
+        );
+        document.getElementById("http-findings").innerHTML = findings(
+          data.http.report,
+          data.http.wall_latency_ms,
+          data.http.mean_request_latency_ms,
+          data.concurrency
+        );
         document.getElementById("ratio").textContent =
           data.http_over_grpc_ratio == null
-            ? "Could not compute ratio"
-            : `HTTP took ${data.http_over_grpc_ratio}× the gRPC latency on this live run`;
+            ? "Ratio unavailable"
+            : `HTTP wall ${data.http_over_grpc_ratio}× gRPC · ${data.log_count} logs · x${data.concurrency}`;
         reportEl.textContent = JSON.stringify(data, null, 2);
-        runMsg.textContent = `Live race complete · fixture ${data.fixture}`;
+        liveRun += 1;
+        pushLivePoint(`#${liveRun} · ${data.log_count}×${data.concurrency}`, {
+          grpc: data.grpc.wall_latency_ms,
+          http: data.http.wall_latency_ms,
+        });
+        await afterRun();
+        runMsg.textContent = "Comparison finished — charts refreshed";
       } catch (err) {
         runMsg.textContent = err.message;
       }
     };
 
     document.getElementById("stream").onclick = async () => {
-      runMsg.textContent = "Running gRPC stream demo…";
+      runMsg.textContent = "Running gRPC stream path…";
       try {
         const data = await api("/api/analyze", {
           method: "POST",
-          body: JSON.stringify({
-            transport: "grpc-stream",
-            fixture: fixtureEl.value,
-          }),
+          body: JSON.stringify(workloadBody({ transport: "grpc-stream" })),
         });
         document.getElementById("grpc-ms").innerHTML =
           `${data.latency_ms.toFixed(1)}<span>ms</span>`;
         document.getElementById("grpc-findings").innerHTML =
-          outcomeLine(data.report) +
-          `<div><b>stream events:</b> ${(data.report.log_analysis_events || []).length}</div>`;
+          findings(
+            data.report,
+            data.latency_ms,
+            data.mean_request_latency_ms,
+            data.concurrency
+          ) +
+          `<div>stream events: ${(data.report.log_analysis_events || []).length}</div>`;
         reportEl.textContent = JSON.stringify(data, null, 2);
-        runMsg.textContent = `Stream demo done in ${data.latency_ms.toFixed(1)} ms`;
+        liveRun += 1;
+        pushLivePoint(`#${liveRun} · stream ${data.payload_size}×${data.concurrency}`, {
+          stream: data.latency_ms,
+        });
+        await afterRun();
+        runMsg.textContent = "Stream path finished — charts refreshed";
       } catch (err) {
         runMsg.textContent = err.message;
       }
     };
 
+    syncSource();
+    ensureLiveChart();
     Promise.all([refreshServers(), loadFixtures(), loadSummary()]).catch((err) => {
       serverMsg.textContent = err.message;
     });

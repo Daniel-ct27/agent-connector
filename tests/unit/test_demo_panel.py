@@ -28,7 +28,26 @@ def test_demo_panel_index_and_fixtures() -> None:
     index = client.get("/")
     assert index.status_code == 200
     assert "Agent Connector" in index.text
-    assert "Race protocols" in index.text
+    assert "chart.js" in index.text.lower()
+    assert "Scored evidence" in index.text
+    assert "chart-live" in index.text
+    assert "after every run" in index.text
+    assert "#cfef3a" in index.text
+    assert "Agent<br />Connector" in index.text
     fixtures = client.get("/api/fixtures")
     assert fixtures.status_code == 200
     assert "inc-db-001.json" in fixtures.json()["fixtures"]
+
+
+def test_demo_panel_summary_charts() -> None:
+    client = TestClient(create_demo_app())
+    response = client.get("/api/summary")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "charts" in payload
+    if payload["rows"]:
+        charts = payload["charts"]
+        assert charts["latency"]["labels"]
+        assert len(charts["latency"]["grpc"]) == len(charts["latency"]["labels"])
+        assert charts["throughput"]["labels"]
+        assert charts["ttfe"]["labels"]
