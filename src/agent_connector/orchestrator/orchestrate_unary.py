@@ -95,10 +95,14 @@ def _http_error_detail(response: httpx.Response) -> str:
 
 
 def _map_http_transport_error(error: Exception) -> tuple[AgentStatus, str]:
+    # ConnectTimeout is a TimeoutException subclass; on some platforms
+    # (notably Windows) a closed port surfaces as ConnectTimeout rather
+    # than ConnectError. Treat both as UNAVAILABLE so sibling isolation
+    # matches the gRPC unavailable-agent path.
+    if isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return AgentStatus.UNAVAILABLE, str(error) or "connection failed"
     if isinstance(error, httpx.TimeoutException):
         return AgentStatus.TIMEOUT, str(error) or "request timed out"
-    if isinstance(error, httpx.ConnectError):
-        return AgentStatus.UNAVAILABLE, str(error) or "connection failed"
     return AgentStatus.FAILED, str(error) or "http call failed"
 
 
