@@ -318,7 +318,12 @@ Optional rehearsal helpers:
 ```bash
 # concurrent race/stress smoke (ephemeral agents; not a scored Stage 7 run)
 python scripts/stress_race_smoke.py
+
+# local demo panel (start/stop agents + run fixtures + charts)
+agent-connector-demo
+# open http://127.0.0.1:8090
 ```
+
 
 ## Current limitations
 

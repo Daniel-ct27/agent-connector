@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent Connector Demo</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1c1a16;
+      --muted: #5c564c;
+      --card: #fffdf8;
+      --line: #d9d0c1;
+      --grpc: #0f6a4f;
+      --http: #8a4b12;
+      --danger: #8b1e1e;
+      --ok: #216a2c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #efe4cf 0, transparent 40%),
+        linear-gradient(180deg, #f7f2e8, var(--bg));
+      min-height: 100vh;
+    }
+    header, main { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+    header h1 { margin: 0 0 0.35rem; font-size: 1.85rem; letter-spacing: -0.02em; }
+    header p { margin: 0; color: var(--muted); max-width: 42rem; }
+    .grid { display: grid; gap: 1rem; }
+    @media (min-width: 900px) {
+      .grid.two { grid-template-columns: 1.1fr 0.9fr; }
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      box-shadow: 0 10px 24px rgba(40, 30, 10, 0.04);
+    }
+    h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    button, select {
+      font: inherit;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 0.45rem 0.85rem;
+      cursor: pointer;
+    }
+    button:hover { border-color: #b9ae9b; }
+    button.grpc { background: #e8f6f0; border-color: #b7d8cb; color: var(--grpc); }
+    button.http { background: #f8eee3; border-color: #e0c8a8; color: var(--http); }
+    button.danger { background: #f8e8e8; border-color: #e2b6b6; color: var(--danger); }
+    button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: left; padding: 0.4rem 0.35rem; border-bottom: 1px solid var(--line); }
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .pill.on { background: #e5f5e8; color: var(--ok); }
+    .pill.off { background: #f1ece4; color: var(--muted); }
+    .charts { display: grid; gap: 0.75rem; }
+    @media (min-width: 800px) { .charts { grid-template-columns: repeat(3, 1fr); } }
+    .charts figure { margin: 0; }
+    .charts img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .charts figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
+    pre {
+      margin: 0;
+      max-height: 320px;
+      overflow: auto;
+      background: #1c1a16;
+      color: #f4efe6;
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-size: 0.8rem;
+    }
+    .note { color: var(--muted); font-size: 0.86rem; }
+    .status-line { min-height: 1.2rem; color: var(--muted); font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agent Connector Demo</h1>
+    <p>
+      Local control panel for starting gRPC/HTTP agent processes, running a fixture,
+      and reviewing the scored Stage 7 charts. Binds to localhost only.
+    </p>
+  </header>
+  <main class="grid">
+    <section>
+      <h2>Servers</h2>
+      <div class="row">
+        <button class="grpc" id="start-grpc">Start all gRPC</button>
+        <button class="http" id="start-http">Start all HTTP</button>
+        <button class="danger" id="stop-all">Stop all</button>
+        <button id="refresh">Refresh status</button>
+      </div>
+      <div class="status-line" id="server-msg"></div>
+      <table>
+        <thead>
+          <tr><th>Service</th><th>Port</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="server-body"></tbody>
+      </table>
+      <p class="note">Analyzer is set when a process starts (default deterministic). Restart Log Analysis after switching to OpenAI.</p>
+    </section>
+
+    <div class="grid two">
+      <section>
+        <h2>Run analysis</h2>
+        <div class="row">
+          <select id="transport">
+            <option value="grpc-stream">gRPC stream (demo default)</option>
+            <option value="grpc-unary">gRPC unary</option>
+            <option value="http-unary">HTTP unary</option>
+          </select>
+          <select id="fixture"></select>
+          <button class="primary" id="run">Run</button>
+        </div>
+        <div class="status-line" id="run-msg"></div>
+        <pre id="report">{}</pre>
+      </section>
+
+      <section>
+        <h2>Fairness reminder</h2>
+        <p class="note">
+          Compared on purpose: protobuf vs JSON, and gRPC framing vs HTTP/JSON.
+          Removed self-penalties: HTTP no longer full-buffer-replays bodies when
+          Content-Length is under the shared ceiling; httpx keepalive is used
+          within each orchestration. Framework overhead of FastAPI/Uvicorn remains
+          part of the HTTP stack under test.
+        </p>
+      </section>
+    </div>
+
+    <section>
+      <h2>Scored-run charts</h2>
+      <div class="charts">
+        <figure>
+          <img src="/charts/unary_latency_vs_payload.png" alt="Unary latency chart" />
+          <figcaption>Unary median latency vs payload</figcaption>
+        </figure>
+        <figure>
+          <img src="/charts/unary_throughput_vs_concurrency.png" alt="Throughput chart" />
+          <figcaption>Unary throughput vs concurrency</figcaption>
+        </figure>
+        <figure>
+          <img src="/charts/stream_ttfe_vs_payload.png" alt="TTFE chart" />
+          <figcaption>Stream time-to-first-event</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Summary snapshot (concurrency = 1)</h2>
+      <div class="status-line" id="summary-msg"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Transport</th><th>Payload</th><th>Median ms</th>
+            <th>p95 ms</th><th>Throughput</th><th>Success</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body"></tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    const serverBody = document.getElementById("server-body");
+    const serverMsg = document.getElementById("server-msg");
+    const runMsg = document.getElementById("run-msg");
+    const reportEl = document.getElementById("report");
+    const fixtureEl = document.getElementById("fixture");
+    const summaryBody = document.getElementById("summary-body");
+    const summaryMsg = document.getElementById("summary-msg");
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      return data;
+    }
+
+    function renderServers(servers) {
+      serverBody.innerHTML = "";
+      for (const s of servers) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${s.label}</td>
+          <td>${s.port}</td>
+          <td><span class="pill ${s.running ? "on" : "off"}">${s.running ? "running" : "stopped"}</span></td>
+          <td></td>`;
+        const cell = tr.lastElementChild;
+        const start = document.createElement("button");
+        start.textContent = "Start";
+        start.className = s.kind === "grpc" ? "grpc" : "http";
+        start.onclick = async () => {
+          serverMsg.textContent = `Starting ${s.label}...`;
+          try {
+            await api(`/api/servers/${s.key}/start`, { method: "POST", body: "{}" });
+            serverMsg.textContent = `Started ${s.label}`;
+            await refreshServers();
+          } catch (err) {
+            serverMsg.textContent = err.message;
+          }
+        };
+        const stop = document.createElement("button");
+        stop.textContent = "Stop";
+        stop.className = "danger";
+        stop.onclick = async () => {
+          try {
+            await api(`/api/servers/${s.key}/stop`, { method: "POST", body: "{}" });
+            serverMsg.textContent = `Stopped ${s.label}`;
+            await refreshServers();
+          } catch (err) {
+            serverMsg.textContent = err.message;
+          }
+        };
+        cell.append(start, " ", stop);
+        serverBody.appendChild(tr);
+      }
+    }
+
+    async function refreshServers() {
+      const data = await api("/api/servers");
+      renderServers(data.servers);
+    }
+
+    async function loadFixtures() {
+      const data = await api("/api/fixtures");
+      fixtureEl.innerHTML = "";
+      for (const name of data.fixtures) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        fixtureEl.appendChild(opt);
+      }
+    }
+
+    async function loadSummary() {
+      const data = await api("/api/summary");
+      summaryBody.innerHTML = "";
+      if (!data.rows || !data.rows.length) {
+        summaryMsg.textContent = data.note || "No summary loaded";
+        return;
+      }
+      summaryMsg.textContent = `Source: ${data.source}`;
+      const rows = data.rows.filter(
+        (r) => r.concurrency === "1" && (r.transport === "grpc" || r.transport === "http")
+      );
+      for (const r of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.transport}</td>
+          <td>${r.payload_size}</td>
+          <td>${Number(r.median_latency_ms).toFixed(1)}</td>
+          <td>${Number(r.p95_latency_ms).toFixed(1)}</td>
+          <td>${Number(r.throughput_rps).toFixed(2)}</td>
+          <td>${r.success_rate}</td>`;
+        summaryBody.appendChild(tr);
+      }
+    }
+
+    document.getElementById("refresh").onclick = () => refreshServers().catch((e) => serverMsg.textContent = e.message);
+    document.getElementById("start-grpc").onclick = async () => {
+      serverMsg.textContent = "Starting all gRPC agents...";
+      try {
+        await api("/api/servers/start-grpc", { method: "POST", body: "{}" });
+        serverMsg.textContent = "gRPC agents started";
+        await refreshServers();
+      } catch (err) { serverMsg.textContent = err.message; }
+    };
+    document.getElementById("start-http").onclick = async () => {
+      serverMsg.textContent = "Starting all HTTP agents...";
+      try {
+        await api("/api/servers/start-http", { method: "POST", body: "{}" });
+        serverMsg.textContent = "HTTP agents started";
+        await refreshServers();
+      } catch (err) { serverMsg.textContent = err.message; }
+    };
+    document.getElementById("stop-all").onclick = async () => {
+      try {
+        await api("/api/servers/stop-all", { method: "POST", body: "{}" });
+        serverMsg.textContent = "All managed agents stopped";
+        await refreshServers();
+      } catch (err) { serverMsg.textContent = err.message; }
+    };
+    document.getElementById("run").onclick = async () => {
+      runMsg.textContent = "Running...";
+      try {
+        const data = await api("/api/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            transport: document.getElementById("transport").value,
+            fixture: fixtureEl.value,
+          }),
+        });
+        reportEl.textContent = JSON.stringify(data.report, null, 2);
+        runMsg.textContent = `${data.transport} on ${data.fixture} — partial=${data.report.partial}`;
+      } catch (err) {
+        runMsg.textContent = err.message;
+      }
+    };
+
+    Promise.all([refreshServers(), loadFixtures(), loadSummary()]).catch((err) => {
+      serverMsg.textContent = err.message;
+    });
+  </script>
+</body>
+</html>

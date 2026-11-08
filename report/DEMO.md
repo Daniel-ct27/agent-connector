@@ -12,7 +12,17 @@ $env:AGENT_CONNECTOR_ANALYZER = "deterministic"
 Use deterministic for protocol demos and anything timed. The live LLM step is
 optional and separate (section 7).
 
-## 2. Start agents (1 min)
+### Option A — Demo panel (recommended)
+
+```powershell
+agent-connector-demo
+# open http://127.0.0.1:8090
+```
+
+Use the page buttons to start gRPC and/or HTTP agents, pick a fixture/transport,
+and run. Charts from the scored run are shown on the same page.
+
+## 2. Start agents manually (1 min) — Option B
 
 Three gRPC terminals:
 
@@ -29,6 +39,7 @@ python -m agent_connector.servers.http_severity
 python -m agent_connector.servers.http_runbook
 python -m agent_connector.servers.http_log_analysis
 ```
+
 
 ## 3. Happy-path stream demo (2 min)
 

@@ -36,6 +36,7 @@ agent-connector-http-runbook = "agent_connector.servers.http_runbook:main"
 agent-connector-http-log-analysis = "agent_connector.servers.http_log_analysis:main"
 agent-connector = "agent_connector.orchestrator.cli:main"
 agent-connector-benchmark = "agent_connector.benchmarks.cli:main"
+agent-connector-demo = "agent_connector.servers.demo_panel:main"
 
 
 [tool.setuptools.packages.find]
