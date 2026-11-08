@@ -3,186 +3,418 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Agent Connector Demo</title>
+  <title>Agent Connector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f3efe6;
-      --ink: #1c1a16;
-      --muted: #5c564c;
-      --card: #fffdf8;
-      --line: #d9d0c1;
-      --grpc: #0f6a4f;
-      --http: #8a4b12;
-      --danger: #8b1e1e;
-      --ok: #216a2c;
+      --ink: #121814;
+      --paper: #e7ebe3;
+      --panel: #f4f6f1;
+      --line: #c5cdc0;
+      --mute: #5b675d;
+      --signal: #cfef3a;
+      --grpc: #0b6e4f;
+      --http: #b45309;
+      --danger: #9f1239;
+      --shadow: 0 18px 50px rgba(18, 24, 20, 0.08);
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
       color: var(--ink);
+      font-family: "IBM Plex Sans", sans-serif;
       background:
-        radial-gradient(circle at top left, #efe4cf 0, transparent 40%),
-        linear-gradient(180deg, #f7f2e8, var(--bg));
+        linear-gradient(135deg, rgba(18,24,20,0.04) 1px, transparent 1px) 0 0 / 28px 28px,
+        linear-gradient(180deg, #eef2ea 0%, var(--paper) 42%, #dde5d8 100%);
       min-height: 100vh;
     }
-    header, main { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
-    header h1 { margin: 0 0 0.35rem; font-size: 1.85rem; letter-spacing: -0.02em; }
-    header p { margin: 0; color: var(--muted); max-width: 42rem; }
-    .grid { display: grid; gap: 1rem; }
+    .wrap { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; }
+    .reveal { opacity: 0; transform: translateY(18px); animation: up 0.7s ease forwards; }
+    .reveal.d2 { animation-delay: 0.12s; }
+    .reveal.d3 { animation-delay: 0.24s; }
+    .reveal.d4 { animation-delay: 0.36s; }
+    @keyframes up { to { opacity: 1; transform: none; } }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(207, 239, 58, 0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(207, 239, 58, 0); }
+    }
+    @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+    .hero {
+      padding: 2.4rem 0 1.4rem;
+      display: grid;
+      gap: 1.4rem;
+    }
     @media (min-width: 900px) {
-      .grid.two { grid-template-columns: 1.1fr 0.9fr; }
+      .hero { grid-template-columns: 1.35fr 0.85fr; align-items: end; }
     }
-    section {
-      background: var(--card);
+    .brand {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.6rem, 7vw, 5.2rem);
+      line-height: 0.92;
+      letter-spacing: -0.045em;
+      margin: 0;
+    }
+    .brand span {
+      display: inline-block;
+      background: var(--signal);
+      padding: 0 0.18em 0.05em;
+      margin-left: 0.08em;
+    }
+    .question {
+      margin: 1rem 0 0;
+      max-width: 36rem;
+      font-size: 1.08rem;
+      line-height: 1.45;
+      color: var(--mute);
+    }
+    .question strong { color: var(--ink); font-weight: 600; }
+    .hero-side {
+      background: var(--ink);
+      color: #edf2e8;
+      border-radius: 18px;
+      padding: 1.1rem 1.2rem;
+      box-shadow: var(--shadow);
+    }
+    .hero-side h2 {
+      margin: 0 0 0.55rem;
+      font-family: Syne, sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--signal);
+    }
+    .hero-side ol {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: #c9d2c4;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .lab {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+    @media (min-width: 960px) {
+      .lab { grid-template-columns: 0.92fr 1.08fr; }
+    }
+    .panel {
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 1rem 1.1rem;
-      box-shadow: 0 10px 24px rgba(40, 30, 10, 0.04);
+      border-radius: 18px;
+      padding: 1.05rem 1.15rem 1.2rem;
+      box-shadow: var(--shadow);
     }
-    h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
-    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .panel h3 {
+      margin: 0 0 0.85rem;
+      font-family: Syne, sans-serif;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .hint { margin: 0.35rem 0 0; color: var(--mute); font-size: 0.84rem; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
     button, select {
       font: inherit;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: #fff;
-      padding: 0.45rem 0.85rem;
+      color: var(--ink);
+      padding: 0.55rem 0.95rem;
       cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
     }
-    button:hover { border-color: #b9ae9b; }
-    button.grpc { background: #e8f6f0; border-color: #b7d8cb; color: var(--grpc); }
-    button.http { background: #f8eee3; border-color: #e0c8a8; color: var(--http); }
-    button.danger { background: #f8e8e8; border-color: #e2b6b6; color: var(--danger); }
-    button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-    th, td { text-align: left; padding: 0.4rem 0.35rem; border-bottom: 1px solid var(--line); }
-    .pill {
-      display: inline-block;
-      padding: 0.1rem 0.5rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
+    button:hover { transform: translateY(-1px); border-color: #9aa893; }
+    button:active { transform: translateY(0); }
+    button.primary {
+      background: var(--ink);
+      color: var(--signal);
+      border-color: var(--ink);
       font-weight: 600;
     }
-    .pill.on { background: #e5f5e8; color: var(--ok); }
-    .pill.off { background: #f1ece4; color: var(--muted); }
-    .charts { display: grid; gap: 0.75rem; }
-    @media (min-width: 800px) { .charts { grid-template-columns: repeat(3, 1fr); } }
-    .charts figure { margin: 0; }
-    .charts img {
-      width: 100%;
-      border-radius: 10px;
+    button.grpc { background: #dff3ea; border-color: #9dceb8; color: var(--grpc); font-weight: 600; }
+    button.http { background: #f8e8d4; border-color: #e2bb84; color: var(--http); font-weight: 600; }
+    button.danger { background: #fde8ee; border-color: #efb4c3; color: var(--danger); }
+    button.live {
+      animation: pulse 1.6s infinite;
+      background: var(--signal);
+      border-color: #a8c61f;
+      font-weight: 700;
+    }
+
+    .server-list { display: grid; gap: 0.45rem; }
+    .server {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 0.55rem;
+      align-items: center;
+      padding: 0.55rem 0.65rem;
       border: 1px solid var(--line);
+      border-radius: 12px;
       background: #fff;
     }
-    .charts figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
-    pre {
-      margin: 0;
-      max-height: 320px;
-      overflow: auto;
-      background: #1c1a16;
-      color: #f4efe6;
-      border-radius: 10px;
-      padding: 0.85rem;
-      font-size: 0.8rem;
+    .server .meta { font-size: 0.9rem; }
+    .server .meta small { display: block; color: var(--mute); font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; }
+    .pill {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
     }
-    .note { color: var(--muted); font-size: 0.86rem; }
-    .status-line { min-height: 1.2rem; color: var(--muted); font-size: 0.88rem; }
+    .pill.on { background: #d9f5e3; color: var(--grpc); }
+    .pill.off { background: #ecefe8; color: var(--mute); }
+    .mini { display: flex; gap: 0.35rem; }
+    .mini button { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
+
+    .race-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.85rem;
+    }
+    .race-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+    @media (min-width: 700px) {
+      .race-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .lane {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 0.9rem;
+      min-height: 180px;
+    }
+    .lane.grpc { border-top: 4px solid var(--grpc); }
+    .lane.http { border-top: 4px solid var(--http); }
+    .lane .label {
+      font-family: Syne, sans-serif;
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+    .lane .ms {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .lane .ms span { font-size: 0.9rem; color: var(--mute); margin-left: 0.2rem; }
+    .bar-wrap {
+      margin-top: 0.85rem;
+      height: 10px;
+      background: #e7ebe3;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar {
+      height: 100%;
+      width: 100%;
+      transform-origin: left center;
+      animation: barGrow 0.7s ease;
+    }
+    .bar.grpc { background: var(--grpc); }
+    .bar.http { background: var(--http); }
+    .ratio {
+      margin-top: 0.85rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 12px;
+      background: var(--ink);
+      color: var(--signal);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.95rem;
+    }
+    .findings {
+      display: grid;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+      font-size: 0.86rem;
+      color: var(--mute);
+    }
+    .findings b { color: var(--ink); }
+
+    .evidence { margin: 0.4rem 0 2rem; }
+    .evidence h3 {
+      font-family: Syne, sans-serif;
+      font-size: 1.35rem;
+      margin: 0 0 0.75rem;
+    }
+    .charts {
+      display: grid;
+      gap: 0.8rem;
+    }
+    @media (min-width: 900px) {
+      .charts { grid-template-columns: repeat(3, 1fr); }
+    }
+    figure {
+      margin: 0;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    figure img { display: block; width: 100%; background: #fff; }
+    figcaption {
+      padding: 0.55rem 0.7rem 0.7rem;
+      font-size: 0.82rem;
+      color: var(--mute);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.85rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 0.88rem;
+    }
+    th, td { padding: 0.55rem 0.65rem; border-bottom: 1px solid var(--line); text-align: left; }
+    th { background: #eef2ea; font-weight: 600; }
+    .msg {
+      min-height: 1.2rem;
+      margin-top: 0.55rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--mute);
+    }
+    details {
+      margin-top: 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.55rem 0.75rem;
+    }
+    details summary { cursor: pointer; font-weight: 600; }
+    pre {
+      margin: 0.55rem 0 0;
+      max-height: 260px;
+      overflow: auto;
+      background: var(--ink);
+      color: #e7efe0;
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Agent Connector Demo</h1>
-    <p>
-      Local control panel for starting gRPC/HTTP agent processes, running a fixture,
-      and reviewing the scored Stage 7 charts. Binds to localhost only.
-    </p>
-  </header>
-  <main class="grid">
-    <section>
-      <h2>Servers</h2>
-      <div class="row">
-        <button class="grpc" id="start-grpc">Start all gRPC</button>
-        <button class="http" id="start-http">Start all HTTP</button>
-        <button class="danger" id="stop-all">Stop all</button>
-        <button id="refresh">Refresh status</button>
+  <div class="wrap">
+    <header class="hero">
+      <div class="reveal">
+        <p class="brand">Agent<br />Connector<span>.</span></p>
+        <p class="question">
+          <strong>Research demo:</strong> for the same incident workload, how does
+          <strong>gRPC</strong> compare with <strong>HTTP/JSON</strong> — and what does
+          server streaming add for Log Analysis?
+        </p>
       </div>
-      <div class="status-line" id="server-msg"></div>
-      <table>
-        <thead>
-          <tr><th>Service</th><th>Port</th><th>Status</th><th></th></tr>
-        </thead>
-        <tbody id="server-body"></tbody>
-      </table>
-      <p class="note">Analyzer is set when a process starts (default deterministic). Restart Log Analysis after switching to OpenAI.</p>
+      <aside class="hero-side reveal d2">
+        <h2>Professor walkthrough</h2>
+        <ol>
+          <li>Start gRPC + HTTP agents with the buttons.</li>
+          <li>Hit <em>Race protocols</em> for a live side-by-side timing.</li>
+          <li>Scroll to scored charts (810 timed trials).</li>
+          <li>Optional: stream demo shows progressive Log Analysis updates.</li>
+        </ol>
+      </aside>
+    </header>
+
+    <section class="lab">
+      <div class="panel reveal d2">
+        <h3>1 · Bring the agents online</h3>
+        <div class="controls">
+          <button class="grpc" id="start-grpc">Start gRPC stack</button>
+          <button class="http" id="start-http">Start HTTP stack</button>
+          <button class="danger" id="stop-all">Stop all</button>
+        </div>
+        <div class="server-list" id="server-list"></div>
+        <p class="msg" id="server-msg"></p>
+        <p class="hint">Localhost only. Processes are managed by this panel and stop when you close it.</p>
+      </div>
+
+      <div class="panel reveal d3">
+        <div class="race-head">
+          <h3>2 · Live protocol race</h3>
+          <div class="controls" style="margin:0">
+            <select id="fixture"></select>
+            <button class="live" id="race">Race protocols</button>
+            <button id="stream">Stream demo</button>
+          </div>
+        </div>
+        <div class="race-grid">
+          <div class="lane grpc">
+            <div class="label">gRPC unary</div>
+            <div class="ms" id="grpc-ms">—<span>ms</span></div>
+            <div class="bar-wrap"><div class="bar grpc" id="grpc-bar" style="width:0%"></div></div>
+            <div class="findings" id="grpc-findings">Waiting for a race…</div>
+          </div>
+          <div class="lane http">
+            <div class="label">HTTP / JSON unary</div>
+            <div class="ms" id="http-ms">—<span>ms</span></div>
+            <div class="bar-wrap"><div class="bar http" id="http-bar" style="width:0%"></div></div>
+            <div class="findings" id="http-findings">Same fixture. Same agents. Different transport.</div>
+          </div>
+        </div>
+        <div class="ratio" id="ratio">Ratio appears after a race — HTTP latency ÷ gRPC latency</div>
+        <p class="msg" id="run-msg"></p>
+        <details>
+          <summary>Raw report JSON</summary>
+          <pre id="report">{}</pre>
+        </details>
+      </div>
     </section>
 
-    <div class="grid two">
-      <section>
-        <h2>Run analysis</h2>
-        <div class="row">
-          <select id="transport">
-            <option value="grpc-stream">gRPC stream (demo default)</option>
-            <option value="grpc-unary">gRPC unary</option>
-            <option value="http-unary">HTTP unary</option>
-          </select>
-          <select id="fixture"></select>
-          <button class="primary" id="run">Run</button>
-        </div>
-        <div class="status-line" id="run-msg"></div>
-        <pre id="report">{}</pre>
-      </section>
-
-      <section>
-        <h2>Fairness reminder</h2>
-        <p class="note">
-          Compared on purpose: protobuf vs JSON, and gRPC framing vs HTTP/JSON.
-          Removed self-penalties: HTTP no longer full-buffer-replays bodies when
-          Content-Length is under the shared ceiling; httpx keepalive is used
-          within each orchestration. Framework overhead of FastAPI/Uvicorn remains
-          part of the HTTP stack under test.
-        </p>
-      </section>
-    </div>
-
-    <section>
-      <h2>Scored-run charts</h2>
+    <section class="evidence reveal d4">
+      <h3>3 · Scored evidence (Stage 7)</h3>
+      <p class="hint" style="margin-bottom:0.85rem">
+        810 timed trials · deterministic analyzer · payloads 100 / 1k / 5k · concurrency 1 / 5 / 10
+      </p>
       <div class="charts">
         <figure>
-          <img src="/charts/unary_latency_vs_payload.png" alt="Unary latency chart" />
-          <figcaption>Unary median latency vs payload</figcaption>
+          <img src="/charts/unary_latency_vs_payload.png" alt="Unary latency vs payload" />
+          <figcaption>Unary median latency — gRPC stays faster as payload grows</figcaption>
         </figure>
         <figure>
-          <img src="/charts/unary_throughput_vs_concurrency.png" alt="Throughput chart" />
-          <figcaption>Unary throughput vs concurrency</figcaption>
+          <img src="/charts/unary_throughput_vs_concurrency.png" alt="Throughput vs concurrency" />
+          <figcaption>Throughput under concurrency (payload 1000)</figcaption>
         </figure>
         <figure>
-          <img src="/charts/stream_ttfe_vs_payload.png" alt="TTFE chart" />
-          <figcaption>Stream time-to-first-event</figcaption>
+          <img src="/charts/stream_ttfe_vs_payload.png" alt="Stream TTFE" />
+          <figcaption>Streaming value: time-to-first Log Analysis event</figcaption>
         </figure>
       </div>
-    </section>
-
-    <section>
-      <h2>Summary snapshot (concurrency = 1)</h2>
-      <div class="status-line" id="summary-msg"></div>
       <table>
         <thead>
           <tr>
             <th>Transport</th><th>Payload</th><th>Median ms</th>
-            <th>p95 ms</th><th>Throughput</th><th>Success</th>
+            <th>p95 ms</th><th>req/s</th><th>Success</th>
           </tr>
         </thead>
         <tbody id="summary-body"></tbody>
       </table>
+      <p class="msg" id="summary-msg"></p>
     </section>
-  </main>
+  </div>
+
   <script>
-    const serverBody = document.getElementById("server-body");
+    const serverList = document.getElementById("server-list");
     const serverMsg = document.getElementById("server-msg");
     const runMsg = document.getElementById("run-msg");
-    const reportEl = document.getElementById("report");
     const fixtureEl = document.getElementById("fixture");
+    const reportEl = document.getElementById("report");
     const summaryBody = document.getElementById("summary-body");
     const summaryMsg = document.getElementById("summary-msg");
 
@@ -192,32 +424,47 @@
         ...options,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || res.statusText);
+      if (!res.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : res.statusText;
+        throw new Error(detail);
+      }
       return data;
     }
 
+    function outcomeLine(report) {
+      if (!report) return "No report";
+      const parts = (report.agent_outcomes || []).map(
+        (o) => `${o.name}: ${o.status}`
+      );
+      const sev = report.severity ? `severity=${report.severity.level}` : "severity=—";
+      const cause = report.log_analysis?.likely_cause
+        ? report.log_analysis.likely_cause
+        : "no cause yet";
+      return `<div><b>${sev}</b> · partial=${report.partial}</div>
+              <div>${parts.join(" · ")}</div>
+              <div>${cause}</div>`;
+    }
+
     function renderServers(servers) {
-      serverBody.innerHTML = "";
+      serverList.innerHTML = "";
       for (const s of servers) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${s.label}</td>
-          <td>${s.port}</td>
-          <td><span class="pill ${s.running ? "on" : "off"}">${s.running ? "running" : "stopped"}</span></td>
-          <td></td>`;
-        const cell = tr.lastElementChild;
+        const row = document.createElement("div");
+        row.className = "server";
+        row.innerHTML = `
+          <div class="meta">${s.label}<small>:${s.port}</small></div>
+          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "up" : "down"}</span>
+          <div class="mini"></div>`;
+        const mini = row.querySelector(".mini");
         const start = document.createElement("button");
         start.textContent = "Start";
         start.className = s.kind === "grpc" ? "grpc" : "http";
         start.onclick = async () => {
-          serverMsg.textContent = `Starting ${s.label}...`;
+          serverMsg.textContent = `Starting ${s.label}…`;
           try {
             await api(`/api/servers/${s.key}/start`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `Started ${s.label}`;
+            serverMsg.textContent = `${s.label} is up`;
             await refreshServers();
-          } catch (err) {
-            serverMsg.textContent = err.message;
-          }
+          } catch (err) { serverMsg.textContent = err.message; }
         };
         const stop = document.createElement("button");
         stop.textContent = "Stop";
@@ -225,14 +472,12 @@
         stop.onclick = async () => {
           try {
             await api(`/api/servers/${s.key}/stop`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `Stopped ${s.label}`;
+            serverMsg.textContent = `${s.label} stopped`;
             await refreshServers();
-          } catch (err) {
-            serverMsg.textContent = err.message;
-          }
+          } catch (err) { serverMsg.textContent = err.message; }
         };
-        cell.append(start, " ", stop);
-        serverBody.appendChild(tr);
+        mini.append(start, stop);
+        serverList.appendChild(row);
       }
     }
 
@@ -247,7 +492,7 @@
       for (const name of data.fixtures) {
         const opt = document.createElement("option");
         opt.value = name;
-        opt.textContent = name;
+        opt.textContent = name.replace(".json", "");
         fixtureEl.appendChild(opt);
       }
     }
@@ -255,8 +500,8 @@
     async function loadSummary() {
       const data = await api("/api/summary");
       summaryBody.innerHTML = "";
-      if (!data.rows || !data.rows.length) {
-        summaryMsg.textContent = data.note || "No summary loaded";
+      if (!data.rows?.length) {
+        summaryMsg.textContent = data.note || "No summary.csv yet";
         return;
       }
       summaryMsg.textContent = `Source: ${data.source}`;
@@ -276,20 +521,32 @@
       }
     }
 
-    document.getElementById("refresh").onclick = () => refreshServers().catch((e) => serverMsg.textContent = e.message);
+    function setLane(prefix, ms, report, maxMs) {
+      const msEl = document.getElementById(`${prefix}-ms`);
+      const bar = document.getElementById(`${prefix}-bar`);
+      const findings = document.getElementById(`${prefix}-findings`);
+      msEl.innerHTML = `${ms.toFixed(1)}<span>ms</span>`;
+      const pct = maxMs > 0 ? Math.max(8, (ms / maxMs) * 100) : 8;
+      bar.style.width = `${pct}%`;
+      bar.style.animation = "none";
+      void bar.offsetWidth;
+      bar.style.animation = "";
+      findings.innerHTML = outcomeLine(report);
+    }
+
     document.getElementById("start-grpc").onclick = async () => {
-      serverMsg.textContent = "Starting all gRPC agents...";
+      serverMsg.textContent = "Starting gRPC stack…";
       try {
         await api("/api/servers/start-grpc", { method: "POST", body: "{}" });
-        serverMsg.textContent = "gRPC agents started";
+        serverMsg.textContent = "gRPC stack up on :50051–50053";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
     document.getElementById("start-http").onclick = async () => {
-      serverMsg.textContent = "Starting all HTTP agents...";
+      serverMsg.textContent = "Starting HTTP stack…";
       try {
         await api("/api/servers/start-http", { method: "POST", body: "{}" });
-        serverMsg.textContent = "HTTP agents started";
+        serverMsg.textContent = "HTTP stack up on :8001–8003";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
@@ -300,18 +557,45 @@
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
-    document.getElementById("run").onclick = async () => {
-      runMsg.textContent = "Running...";
+
+    document.getElementById("race").onclick = async () => {
+      runMsg.textContent = "Racing unary gRPC vs HTTP on the same fixture…";
+      try {
+        const data = await api("/api/compare", {
+          method: "POST",
+          body: JSON.stringify({ fixture: fixtureEl.value }),
+        });
+        const maxMs = Math.max(data.grpc.latency_ms, data.http.latency_ms);
+        setLane("grpc", data.grpc.latency_ms, data.grpc.report, maxMs);
+        setLane("http", data.http.latency_ms, data.http.report, maxMs);
+        document.getElementById("ratio").textContent =
+          data.http_over_grpc_ratio == null
+            ? "Could not compute ratio"
+            : `HTTP took ${data.http_over_grpc_ratio}× the gRPC latency on this live run`;
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        runMsg.textContent = `Live race complete · fixture ${data.fixture}`;
+      } catch (err) {
+        runMsg.textContent = err.message;
+      }
+    };
+
+    document.getElementById("stream").onclick = async () => {
+      runMsg.textContent = "Running gRPC stream demo…";
       try {
         const data = await api("/api/analyze", {
           method: "POST",
           body: JSON.stringify({
-            transport: document.getElementById("transport").value,
+            transport: "grpc-stream",
             fixture: fixtureEl.value,
           }),
         });
-        reportEl.textContent = JSON.stringify(data.report, null, 2);
-        runMsg.textContent = `${data.transport} on ${data.fixture} — partial=${data.report.partial}`;
+        document.getElementById("grpc-ms").innerHTML =
+          `${data.latency_ms.toFixed(1)}<span>ms</span>`;
+        document.getElementById("grpc-findings").innerHTML =
+          outcomeLine(data.report) +
+          `<div><b>stream events:</b> ${(data.report.log_analysis_events || []).length}</div>`;
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        runMsg.textContent = `Stream demo done in ${data.latency_ms.toFixed(1)} ms`;
       } catch (err) {
         runMsg.textContent = err.message;
       }

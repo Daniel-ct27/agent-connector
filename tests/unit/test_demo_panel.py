@@ -27,7 +27,8 @@ def test_demo_panel_index_and_fixtures() -> None:
     client = TestClient(create_demo_app())
     index = client.get("/")
     assert index.status_code == 200
-    assert "Agent Connector Demo" in index.text
+    assert "Agent Connector" in index.text
+    assert "Race protocols" in index.text
     fixtures = client.get("/api/fixtures")
     assert fixtures.status_code == 200
     assert "inc-db-001.json" in fixtures.json()["fixtures"]

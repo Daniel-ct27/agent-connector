@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import json
 from pathlib import Path
+import time
 
 from contextlib import asynccontextmanager
 
@@ -15,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from agent_connector.config import UNARY_DEADLINE_SECONDS
 from agent_connector.demo.process_manager import ProcessManager
-from agent_connector.domain.models import IncidentRequest
+from agent_connector.domain.models import IncidentRequest, IncidentReport
 from agent_connector.orchestrator import (
     AgentEndpoints,
     HttpAgentEndpoints,
@@ -121,22 +123,16 @@ def create_demo_app() -> FastAPI:
             rows = list(csv.DictReader(handle))
         return {"rows": rows, "source": "report/summary.csv"}
 
-    @app.post("/api/analyze")
-    async def analyze(body: AnalyzeRequest) -> dict:
-        fixture_path = FIXTURES_DIR / body.fixture
-        if not fixture_path.is_file():
-            raise HTTPException(status_code=404, detail=f"fixture not found: {body.fixture}")
-        request = IncidentRequest.model_validate(
-            json.loads(fixture_path.read_text(encoding="utf-8"))
-        )
-        if body.transport == "grpc-stream":
+    async def _run_transport(transport: str, request: IncidentRequest) -> tuple[IncidentReport, float]:
+        started = time.perf_counter()
+        if transport == "grpc-stream":
             report = await orchestrate(
                 request,
                 endpoints=AgentEndpoints(),
                 unary_deadline_s=UNARY_DEADLINE_SECONDS,
                 jsonl_path=None,
             )
-        elif body.transport == "grpc-unary":
+        elif transport == "grpc-unary":
             report = await orchestrate_unary(
                 request,
                 transport="grpc",
@@ -152,10 +148,52 @@ def create_demo_app() -> FastAPI:
                 unary_deadline_s=UNARY_DEADLINE_SECONDS,
                 jsonl_path=None,
             )
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        return report, latency_ms
+
+    def _load_fixture(name: str) -> IncidentRequest:
+        fixture_path = FIXTURES_DIR / name
+        if not fixture_path.is_file():
+            raise HTTPException(status_code=404, detail=f"fixture not found: {name}")
+        return IncidentRequest.model_validate(
+            json.loads(fixture_path.read_text(encoding="utf-8"))
+        )
+
+    @app.post("/api/analyze")
+    async def analyze(body: AnalyzeRequest) -> dict:
+        request = _load_fixture(body.fixture)
+        report, latency_ms = await _run_transport(body.transport, request)
         return {
             "transport": body.transport,
             "fixture": body.fixture,
+            "latency_ms": round(latency_ms, 3),
             "report": report.model_dump(mode="json"),
+        }
+
+    @app.post("/api/compare")
+    async def compare(body: AnalyzeRequest) -> dict:
+        """Run unary gRPC and HTTP on the same fixture for a live side-by-side demo."""
+        request = _load_fixture(body.fixture)
+        (grpc_report, grpc_ms), (http_report, http_ms) = await asyncio.gather(
+            _run_transport("grpc-unary", request),
+            _run_transport("http-unary", request),
+        )
+        speedup = (http_ms / grpc_ms) if grpc_ms > 0 else None
+        return {
+            "fixture": body.fixture,
+            "grpc": {
+                "latency_ms": round(grpc_ms, 3),
+                "partial": grpc_report.partial,
+                "report": grpc_report.model_dump(mode="json"),
+            },
+            "http": {
+                "latency_ms": round(http_ms, 3),
+                "partial": http_report.partial,
+                "report": http_report.model_dump(mode="json"),
+            },
+            "http_over_grpc_ratio": (
+                None if speedup is None else round(speedup, 2)
+            ),
         }
 
     return app
