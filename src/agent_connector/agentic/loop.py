@@ -44,6 +44,9 @@ def run_agentic(
     severity = None
     runbook = None
     log_analysis = None
+    planner_degraded = False
+    planner_errors: list[str] = []
+    forced_finish = False
 
     def record(step: AgenticStep) -> None:
         steps.append(step)
@@ -66,6 +69,11 @@ def run_agentic(
     for round_index in range(1, max_rounds + 1):
         context.round_index = round_index
         decision = active.decide(request, context)
+        if decision.degraded:
+            planner_degraded = True
+            if decision.error:
+                planner_errors.append(decision.error)
+
         record(
             AgenticStep(
                 round=round_index,
@@ -73,13 +81,20 @@ def run_agentic(
                 observation=observation,
                 decision=decision.reason or "planner selected tools",
                 tool="plan",
-                status=AgentStatus.OK,
-                detail=", ".join(decision.tools),
+                status=(
+                    AgentStatus.PARTIAL if decision.degraded else AgentStatus.OK
+                ),
+                detail=", ".join(decision.tools)
+                + (
+                    f" | {decision.error}"
+                    if decision.error
+                    else ""
+                ),
             )
         )
 
         tools = [name for name in decision.tools if name]
-        if not tools or TOOL_FINISH in tools and len(tools) == 1:
+        if not tools or (TOOL_FINISH in tools and len(tools) == 1):
             record(
                 AgenticStep(
                     round=round_index,
@@ -87,19 +102,39 @@ def run_agentic(
                     observation=observation,
                     decision=decision.reason or "finish",
                     tool=TOOL_FINISH,
-                    status=AgentStatus.OK,
-                    detail="planner requested finish",
+                    status=(
+                        AgentStatus.PARTIAL if decision.degraded else AgentStatus.OK
+                    ),
+                    detail=(
+                        decision.error or "planner requested finish"
+                        if decision.degraded
+                        else "planner requested finish"
+                    ),
                 )
             )
             finished = True
             break
 
+        acted = False
         for tool_name in tools:
             if tool_name == TOOL_FINISH:
                 continue
             if tool_name in context.called_tools:
+                record(
+                    AgenticStep(
+                        round=round_index,
+                        phase="act",
+                        observation=observation,
+                        decision=decision.reason,
+                        tool=tool_name,
+                        status=AgentStatus.PARTIAL,
+                        detail="skipped; tool already called this run",
+                    )
+                )
                 continue
+
             result = execute_tool(tool_name, request)
+            acted = True
             context.called_tools.add(tool_name)
             context.tool_notes.append(f"{tool_name}: {result.detail}")
             severity, runbook, log_analysis = _merge_result(
@@ -139,7 +174,29 @@ def run_agentic(
             finished = True
             break
 
+        if not acted:
+            # Planner kept proposing already-used tools; stop the spin early.
+            planner_degraded = True
+            planner_errors.append("planner repeated already-called tools")
+            record(
+                AgenticStep(
+                    round=round_index,
+                    phase="finish",
+                    observation=observation,
+                    decision="no new tools selected",
+                    tool=TOOL_FINISH,
+                    status=AgentStatus.PARTIAL,
+                    detail="stopped after repeated already-called tools",
+                )
+            )
+            finished = True
+            forced_finish = True
+            break
+
     if not finished:
+        forced_finish = True
+        planner_degraded = True
+        planner_errors.append("forced finish after max_rounds")
         record(
             AgenticStep(
                 round=max_rounds + 1,
@@ -147,17 +204,21 @@ def run_agentic(
                 observation=observation,
                 decision="max rounds reached",
                 tool=TOOL_FINISH,
-                status=AgentStatus.OK,
+                status=AgentStatus.PARTIAL,
                 detail="forced finish after max_rounds",
             )
         )
 
     ordered_outcomes = list(outcomes.values())
-    partial = (not ordered_outcomes) or any(
-        item.status != AgentStatus.OK for item in ordered_outcomes
+    partial = (
+        forced_finish
+        or planner_degraded
+        or (not ordered_outcomes)
+        or any(item.status != AgentStatus.OK for item in ordered_outcomes)
     )
-    if ordered_outcomes and all(item.status == AgentStatus.OK for item in ordered_outcomes):
-        partial = False
+    mode = active.name
+    if planner_degraded and active.name != "deterministic":
+        mode = f"{active.name}+fallback"
 
     return IncidentReport(
         incident_id=request.incident_id,
@@ -167,8 +228,10 @@ def run_agentic(
         log_analysis=log_analysis,
         agent_outcomes=ordered_outcomes,
         partial=partial,
-        agentic_mode=active.name,
+        agentic_mode=mode,
         agentic_steps=steps,
+        planner_degraded=planner_degraded,
+        planner_error="; ".join(dict.fromkeys(planner_errors)),
     )
 
 
