@@ -3,6 +3,7 @@
 from agent_connector.domain.models import (
     AgentOutcome,
     AgentStatus,
+    AgenticStep,
     EvidenceItem,
     IncidentReport,
     IncidentRequest,
@@ -26,6 +27,7 @@ from agent_connector.domain.validation import (
 __all__ = [
     "AgentOutcome",
     "AgentStatus",
+    "AgenticStep",
     "EvidenceItem",
     "IncidentReport",
     "IncidentRequest",

@@ -129,6 +129,19 @@ class AgentOutcome(BaseModel):
     latency_ms: Optional[float] = None
 
 
+class AgenticStep(BaseModel):
+    """One observe / decide / act step from the agentic coordinator."""
+
+    round: int
+    phase: str = ""
+    observation: str = ""
+    decision: str = ""
+    tool: str = ""
+    status: AgentStatus = AgentStatus.OK
+    detail: str = ""
+    latency_ms: Optional[float] = None
+
+
 class IncidentReport(BaseModel):
     """Orchestrator-local combined report (not a gRPC message).
 
@@ -144,3 +157,5 @@ class IncidentReport(BaseModel):
     log_analysis_events: list[LogAnalysisEvent] = Field(default_factory=list)
     agent_outcomes: list[AgentOutcome] = Field(default_factory=list)
     partial: bool = False
+    agentic_mode: str = ""
+    agentic_steps: list[AgenticStep] = Field(default_factory=list)
