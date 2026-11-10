@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from agent_connector.agentic import run_agentic
+from agent_connector.analyzers.base import AnalyzerConfigError
 from agent_connector.benchmarks.fixtures import generate_incident
 from agent_connector.config import (
     BENCHMARK_CONCURRENCY_LEVELS,
@@ -289,8 +290,13 @@ def create_demo_app() -> FastAPI:
                 planner=body.planner,
                 on_step=on_step,
             )
-        except Exception as error:
+        except AnalyzerConfigError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+        except Exception as error:
+            raise HTTPException(
+                status_code=500,
+                detail="agentic run failed",
+            ) from error
         latency_ms = (time.perf_counter() - started) * 1000.0
         return {
             "transport": "agentic",
@@ -300,6 +306,8 @@ def create_demo_app() -> FastAPI:
             "payload_size": len(request.logs),
             "latency_ms": round(latency_ms, 3),
             "partial": report.partial,
+            "planner_degraded": report.planner_degraded,
+            "planner_error": report.planner_error,
             "steps": steps,
             "report": report.model_dump(mode="json"),
         }

@@ -1003,6 +1003,8 @@
     }
 
     document.getElementById("agentic").onclick = async () => {
+      const button = document.getElementById("agentic");
+      button.disabled = true;
       runMsg.textContent = "Running agentic observe → decide → act…";
       document.getElementById("agentic-timeline").innerHTML = "";
       document.getElementById("agentic-empty").style.display = "";
@@ -1020,14 +1022,22 @@
           }),
         });
         renderAgenticTimeline(data.steps || []);
+        const degraded = data.planner_degraded
+          ? `<div style="color:#b42318">degraded: ${data.planner_error || "planner fallback"}</div>`
+          : "";
         document.getElementById("agentic-findings").innerHTML =
           findings(data.report, data.latency_ms, data.latency_ms, 1) +
-          `<div>planner: ${data.planner} · steps: ${(data.steps || []).length}</div>`;
+          `<div>planner: ${data.planner} · steps: ${(data.steps || []).length}</div>` +
+          degraded;
         reportEl.textContent = JSON.stringify(data, null, 2);
         await afterRun();
-        runMsg.textContent = "Agentic response finished";
+        runMsg.textContent = data.planner_degraded
+          ? "Agentic response finished with planner degradation"
+          : "Agentic response finished";
       } catch (err) {
         runMsg.textContent = err.message;
+      } finally {
+        button.disabled = false;
       }
     };
 
