@@ -45,6 +45,34 @@ from agent_connector.domain.models import IncidentRequest
 
 _LOG = logging.getLogger(__name__)
 
+_PLANNER_TRANSPORT_ERRORS = (
+    httpx.HTTPError,
+    TimeoutError,
+    OSError,
+    json.JSONDecodeError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+)
+
+
+def _fallback_decision(
+    request: IncidentRequest,
+    context: PlannerContext,
+    *,
+    provider: str,
+    error: Exception,
+) -> PlanDecision:
+    fallback = DeterministicPlanner().decide(request, context)
+    message = f"{provider} planner failed ({type(error).__name__}); using deterministic fallback"
+    return PlanDecision(
+        tools=fallback.tools,
+        reason=f"{message}: {fallback.reason}",
+        degraded=True,
+        error=message,
+    )
+
 
 @dataclass
 class PlannerContext:
@@ -150,12 +178,13 @@ class OpenAICompatiblePlanner:
             )
             content = response.choices[0].message.content or ""
             return parse_plan_json(content)
-        except Exception:
+        except _PLANNER_TRANSPORT_ERRORS as error:
             _LOG.exception("OpenAI-compatible planner failed for %s", request.incident_id)
-            fallback = DeterministicPlanner().decide(request, context)
-            return PlanDecision(
-                tools=fallback.tools,
-                reason=f"openai planner failed; fallback: {fallback.reason}",
+            return _fallback_decision(
+                request,
+                context,
+                provider="openai",
+                error=error,
             )
 
 
@@ -196,7 +225,13 @@ class CloudflareWorkersAIPlanner:
         )
         body = {
             "messages": [
-                {"role": "system", "content": plan_system_prompt()},
+                {
+                    "role": "system",
+                    "content": (
+                        plan_system_prompt()
+                        + " Return raw JSON only with no markdown fences."
+                    ),
+                },
                 {
                     "role": "user",
                     "content": json.dumps(payload, separators=(",", ":")),
@@ -222,12 +257,13 @@ class CloudflareWorkersAIPlanner:
             data = response.json()
             content = _cloudflare_content(data)
             return parse_plan_json(content)
-        except Exception:
+        except _PLANNER_TRANSPORT_ERRORS as error:
             _LOG.exception("Cloudflare planner failed for %s", request.incident_id)
-            fallback = DeterministicPlanner().decide(request, context)
-            return PlanDecision(
-                tools=fallback.tools,
-                reason=f"cloudflare planner failed; fallback: {fallback.reason}",
+            return _fallback_decision(
+                request,
+                context,
+                provider="cloudflare",
+                error=error,
             )
 
 
@@ -283,13 +319,21 @@ class HttpJsonPlanner:
             data = response.json()
             if isinstance(data, dict) and "tools" in data:
                 return parse_plan_json(json.dumps(data))
-            return parse_plan_json(json.dumps(data.get("result", data)))
-        except Exception:
-            _LOG.exception("HTTP planner failed for %s", request.incident_id)
-            fallback = DeterministicPlanner().decide(request, context)
+            if isinstance(data, dict):
+                return parse_plan_json(json.dumps(data.get("result", data)))
             return PlanDecision(
-                tools=fallback.tools,
-                reason=f"http planner failed; fallback: {fallback.reason}",
+                tools=(TOOL_FINISH,),
+                reason="planner returned a non-object JSON value",
+                degraded=True,
+                error="planner returned a non-object JSON value",
+            )
+        except _PLANNER_TRANSPORT_ERRORS as error:
+            _LOG.exception("HTTP planner failed for %s", request.incident_id)
+            return _fallback_decision(
+                request,
+                context,
+                provider="http",
+                error=error,
             )
 
 
@@ -301,7 +345,7 @@ def build_planner(name: str | None = None) -> PlannerProvider:
 
     if selected in ("", "deterministic", "rules"):
         return DeterministicPlanner()
-    if selected in ("openai", "openai-compatible", "live"):
+    if selected in ("openai", "openai-compatible"):
         return OpenAICompatiblePlanner(
             api_key=_resolve_openai_api_key(),
             model=model or DEFAULT_OPENAI_COMPAT_MODEL,
