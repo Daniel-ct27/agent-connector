@@ -90,6 +90,26 @@ agent-connector --transport http-unary scenarios/fixtures/inc-db-001.json
 
 Default transport is `grpc-stream`. Call records append to `logs/orchestrator.jsonl` unless you pass `--no-jsonl`. Exit `0` only when every agent returns `OK`.
 
+### Agentic response path (LLM-agnostic)
+
+Planner inspects logs, then chooses tools (`analyze_logs`, `analyze_severity`,
+`recommend_runbook`, `finish`). Formal gRPC/HTTP benchmarks stay on fan-out.
+
+```bash
+agent-connector --transport agentic scenarios/fixtures/inc-db-001.json
+agent-connector --transport agentic --planner openai scenarios/fixtures/inc-db-001.json
+agent-connector --transport agentic --planner cloudflare scenarios/fixtures/inc-db-001.json
+```
+
+| Planner | Env |
+|---|---|
+| `deterministic` (default) | none |
+| `openai` | `OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `AGENT_CONNECTOR_PLANNER_MODEL` |
+| `cloudflare` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional model |
+| `http` | `AGENT_CONNECTOR_PLANNER_URL`, optional `AGENT_CONNECTOR_PLANNER_TOKEN` |
+
+In the demo panel, use **Run agentic response** to watch the live step timeline.
+
 ## Log Analysis mode
 
 Default summarizer is deterministic. For a live OpenAI call, set these **before** starting Log Analysis:
