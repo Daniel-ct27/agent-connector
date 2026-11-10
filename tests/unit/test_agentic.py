@@ -19,14 +19,14 @@ from agent_connector.agentic.providers import (
     PlannerContext,
     build_planner,
 )
-from agent_connector.agentic.schema import parse_plan_json
+from agent_connector.agentic.schema import PlanDecision, parse_plan_json
 from agent_connector.agentic.tools import (
     TOOL_ANALYZE_LOGS,
     TOOL_ANALYZE_SEVERITY,
     TOOL_FINISH,
     TOOL_RECOMMEND_RUNBOOK,
 )
-from agent_connector.domain.models import IncidentRequest, LogEntry, LogLevel
+from agent_connector.domain.models import AgentStatus, IncidentRequest, LogEntry, LogLevel
 
 
 FIXTURE = (
@@ -41,11 +41,33 @@ def _load_db_incident() -> IncidentRequest:
     return IncidentRequest.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
 
 
-def test_parse_plan_json_accepts_fenced_and_plain() -> None:
+def test_parse_plan_json_accepts_nested_object() -> None:
     plain = parse_plan_json('{"tools":["analyze_logs"],"reason":"errors"}')
     assert plain.tools == (TOOL_ANALYZE_LOGS,)
-    fenced = parse_plan_json('```json\n{"tools":["finish"],"reason":"done"}\n```')
-    assert fenced.tools == (TOOL_FINISH,)
+    assert not plain.degraded
+    nested = parse_plan_json(
+        'Here:\n{"tools":["analyze_logs"],"reason":"see {not} finish yet"}\n'
+    )
+    assert nested.tools == (TOOL_ANALYZE_LOGS,)
+
+
+def test_parse_plan_json_marks_invalid_and_unknown_tools() -> None:
+    bad = parse_plan_json("before we finish, maybe analyze_logs")
+    assert bad.degraded
+    assert bad.tools == (TOOL_FINISH,)
+    assert "valid JSON" in bad.error
+
+    unknown = parse_plan_json('{"tools":["teleport"],"reason":"nope"}')
+    assert unknown.degraded
+    assert unknown.tools == (TOOL_FINISH,)
+    assert "teleport" in unknown.error
+
+    mixed = parse_plan_json(
+        '{"tools":["analyze_logs","teleport"],"reason":"mixed"}'
+    )
+    assert mixed.degraded
+    assert mixed.tools == (TOOL_ANALYZE_LOGS,)
+    assert "teleport" in mixed.error
 
 
 def test_deterministic_planner_and_loop() -> None:
@@ -65,21 +87,14 @@ def test_deterministic_planner_and_loop() -> None:
     assert report.runbook is not None
     assert report.log_analysis is not None
     assert not report.partial
+    assert not report.planner_degraded
     assert report.agentic_mode == "deterministic"
 
 
-def test_openai_compatible_planner_parses_json_object() -> None:
+def test_openai_fallback_marks_degraded_mode() -> None:
     class FakeCompletions:
         def create(self, **_kwargs):
-            return SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        message=SimpleNamespace(
-                            content='{"tools":["analyze_logs"],"reason":"inspect"}'
-                        )
-                    )
-                ]
-            )
+            raise TimeoutError("upstream timeout")
 
     client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
     planner = OpenAICompatiblePlanner(
@@ -88,11 +103,24 @@ def test_openai_compatible_planner_parses_json_object() -> None:
         timeout_s=5.0,
         client=client,
     )
-    decision = planner.decide(
-        _load_db_incident(),
-        PlannerContext(observation="demo", round_index=1),
-    )
-    assert decision.tools == (TOOL_ANALYZE_LOGS,)
+    report = run_agentic(_load_db_incident(), planner=planner)
+    assert report.planner_degraded
+    assert report.agentic_mode == "openai+fallback"
+    assert report.partial
+    assert any(step.status == AgentStatus.PARTIAL for step in report.agentic_steps)
+
+
+def test_repeated_tools_force_partial_finish() -> None:
+    class StickyPlanner:
+        name = "sticky"
+
+        def decide(self, request, context):
+            return PlanDecision(tools=(TOOL_ANALYZE_LOGS,), reason="again")
+
+    report = run_agentic(_load_db_incident(), planner=StickyPlanner(), max_rounds=3)
+    assert report.planner_degraded
+    assert report.partial
+    assert any("already called" in step.detail for step in report.agentic_steps)
 
 
 def test_cloudflare_planner_reads_response_field() -> None:
@@ -116,31 +144,32 @@ def test_cloudflare_planner_reads_response_field() -> None:
             PlannerContext(observation="demo", round_index=1),
         )
     assert decision.tools == (TOOL_FINISH,)
+    assert not decision.degraded
 
 
-def test_http_planner_accepts_direct_plan_object() -> None:
+def test_http_planner_rejects_non_object_json() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={"tools": ["analyze_severity"], "reason": "impact"},
-        )
+        return httpx.Response(200, json=["analyze_logs"])
 
     transport = httpx.MockTransport(handler)
     with httpx.Client(transport=transport) as client:
-        planner = HttpJsonPlanner(
-            url="https://example.test/plan",
-            transport=client,
-        )
+        planner = HttpJsonPlanner(url="https://example.test/plan", transport=client)
         decision = planner.decide(
             _load_db_incident(),
             PlannerContext(observation="demo", round_index=2),
         )
-    assert decision.tools == (TOOL_ANALYZE_SEVERITY,)
+    assert decision.degraded
+    assert decision.tools == (TOOL_FINISH,)
 
 
 def test_build_planner_defaults_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AGENT_CONNECTOR_PLANNER", raising=False)
     assert build_planner().name == "deterministic"
+
+
+def test_build_planner_rejects_live_alias() -> None:
+    with pytest.raises(Exception, match="unknown planner"):
+        build_planner("live")
 
 
 def test_info_only_incident_still_finishes() -> None:
