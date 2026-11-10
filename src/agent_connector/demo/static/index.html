@@ -202,6 +202,39 @@
     @media (min-width: 700px) {
       .race-grid { grid-template-columns: 1fr 1fr; }
     }
+    .agentic-timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.45rem;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .agentic-timeline li {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent, #cfef3a);
+      border-radius: 10px;
+      background: #fff;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.84rem;
+      opacity: 0;
+      transform: translateY(6px);
+      animation: step-in 280ms ease forwards;
+    }
+    .agentic-timeline li.phase-observe { border-left-color: #6b8cff; }
+    .agentic-timeline li.phase-decide { border-left-color: #cfef3a; }
+    .agentic-timeline li.phase-act { border-left-color: #3dba7a; }
+    .agentic-timeline li.phase-finish { border-left-color: #9aa39a; }
+    .agentic-timeline .meta {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      color: var(--mute);
+      margin-bottom: 0.15rem;
+    }
+    @keyframes step-in {
+      to { opacity: 1; transform: translateY(0); }
+    }
     .lane {
       border-radius: 14px;
       border: 1px solid var(--line);
@@ -399,6 +432,18 @@
         <div class="controls">
           <button class="live" id="race" type="button">Compare unary gRPC vs HTTP</button>
           <button class="primary" id="stream" type="button">Run stream path</button>
+          <button class="primary" id="agentic" type="button">Run agentic response</button>
+        </div>
+        <div class="field-grid" style="margin-top:0.55rem">
+          <label>
+            Agentic planner
+            <select id="planner">
+              <option value="deterministic" selected>deterministic (offline)</option>
+              <option value="openai">openai-compatible</option>
+              <option value="cloudflare">cloudflare Workers AI</option>
+              <option value="http">custom HTTP</option>
+            </select>
+          </label>
         </div>
         <div class="race-grid">
           <div class="lane grpc">
@@ -413,6 +458,14 @@
           </div>
         </div>
         <div class="ratio" id="ratio">Set a load, start both stacks, then compare.</div>
+        <div class="chart-card" id="agentic-card" style="margin-top:0.85rem">
+          <h4>Live response timeline</h4>
+          <p class="msg" id="agentic-empty" style="margin:0 0 0.45rem">
+            Run agentic response to watch observe → decide → tool calls unfold like an ops desk.
+          </p>
+          <ol id="agentic-timeline" class="agentic-timeline"></ol>
+          <div class="findings" id="agentic-findings" style="margin-top:0.65rem">No agentic run yet.</div>
+        </div>
         <div class="chart-card">
           <h4>Race wall time — grouped bars</h4>
           <p class="msg" id="live-empty" style="margin:0 0 0.4rem">
@@ -921,6 +974,58 @@
         });
         await afterRun();
         runMsg.textContent = "Stream path finished — charts refreshed";
+      } catch (err) {
+        runMsg.textContent = err.message;
+      }
+    };
+
+    function renderAgenticTimeline(steps) {
+      const list = document.getElementById("agentic-timeline");
+      const empty = document.getElementById("agentic-empty");
+      list.innerHTML = "";
+      if (!steps || !steps.length) {
+        empty.style.display = "";
+        return;
+      }
+      empty.style.display = "none";
+      steps.forEach((step, index) => {
+        const li = document.createElement("li");
+        li.className = `phase-${step.phase || "act"}`;
+        li.style.animationDelay = `${index * 90}ms`;
+        const latency =
+          step.latency_ms == null ? "" : ` · ${Number(step.latency_ms).toFixed(1)} ms`;
+        li.innerHTML =
+          `<div class="meta">r${step.round} · ${step.phase}/${step.tool} · ${step.status}${latency}</div>` +
+          `<div><strong>${step.decision || step.tool}</strong></div>` +
+          `<div>${step.detail || ""}</div>`;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById("agentic").onclick = async () => {
+      runMsg.textContent = "Running agentic observe → decide → act…";
+      document.getElementById("agentic-timeline").innerHTML = "";
+      document.getElementById("agentic-empty").style.display = "";
+      try {
+        const body = workloadBody({ transport: "agentic" });
+        body.planner = document.getElementById("planner").value;
+        body.source = document.getElementById("source").value === "fixture" ? "fixture" : body.source;
+        const data = await api("/api/agentic", {
+          method: "POST",
+          body: JSON.stringify({
+            source: body.source,
+            fixture: body.fixture,
+            payload_size: body.payload_size,
+            planner: body.planner,
+          }),
+        });
+        renderAgenticTimeline(data.steps || []);
+        document.getElementById("agentic-findings").innerHTML =
+          findings(data.report, data.latency_ms, data.latency_ms, 1) +
+          `<div>planner: ${data.planner} · steps: ${(data.steps || []).length}</div>`;
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        await afterRun();
+        runMsg.textContent = "Agentic response finished";
       } catch (err) {
         runMsg.textContent = err.message;
       }

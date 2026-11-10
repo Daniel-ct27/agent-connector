@@ -15,15 +15,17 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from agent_connector.agentic import run_agentic
 from agent_connector.benchmarks.fixtures import generate_incident
 from agent_connector.config import (
     BENCHMARK_CONCURRENCY_LEVELS,
     BENCHMARK_PAYLOAD_SIZES,
+    DEFAULT_PLANNER,
     MAX_LOG_ENTRIES,
     UNARY_DEADLINE_SECONDS,
 )
 from agent_connector.demo.process_manager import ProcessManager
-from agent_connector.domain.models import IncidentRequest, IncidentReport
+from agent_connector.domain.models import AgenticStep, IncidentRequest, IncidentReport
 from agent_connector.orchestrator import (
     AgentEndpoints,
     HttpAgentEndpoints,
@@ -44,12 +46,22 @@ class WorkloadRequest(BaseModel):
 
     transport: str = Field(
         default="grpc-stream",
-        pattern="^(grpc-stream|grpc-unary|http-unary)$",
+        pattern="^(grpc-stream|grpc-unary|http-unary|agentic)$",
     )
     source: str = Field(default="generated", pattern="^(fixture|generated)$")
     fixture: str = "inc-db-001.json"
     payload_size: int = Field(default=1000, ge=1, le=MAX_LOG_ENTRIES)
     concurrency: int = Field(default=1, ge=1, le=20)
+    planner: str = Field(default=DEFAULT_PLANNER)
+
+
+class AgenticRequest(BaseModel):
+    """Dedicated agentic response-system run."""
+
+    source: str = Field(default="fixture", pattern="^(fixture|generated)$")
+    fixture: str = "inc-db-001.json"
+    payload_size: int = Field(default=1000, ge=1, le=MAX_LOG_ENTRIES)
+    planner: str = Field(default=DEFAULT_PLANNER)
 
 
 def create_demo_app() -> FastAPI:
@@ -143,9 +155,17 @@ def create_demo_app() -> FastAPI:
     async def _run_transport(
         transport: str,
         request: IncidentRequest,
+        *,
+        planner: str = DEFAULT_PLANNER,
     ) -> tuple[IncidentReport, float]:
         started = time.perf_counter()
-        if transport == "grpc-stream":
+        if transport == "agentic":
+            report = await asyncio.to_thread(
+                run_agentic,
+                request,
+                planner=planner,
+            )
+        elif transport == "grpc-stream":
             report = await orchestrate(
                 request,
                 endpoints=AgentEndpoints(),
@@ -171,19 +191,24 @@ def create_demo_app() -> FastAPI:
         latency_ms = (time.perf_counter() - started) * 1000.0
         return report, latency_ms
 
-    def _resolve_request(body: WorkloadRequest) -> IncidentRequest:
-        if body.source == "fixture":
-            fixture_path = FIXTURES_DIR / body.fixture
+    def _resolve_request(
+        *,
+        source: str,
+        fixture: str,
+        payload_size: int,
+    ) -> IncidentRequest:
+        if source == "fixture":
+            fixture_path = FIXTURES_DIR / fixture
             if not fixture_path.is_file():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"fixture not found: {body.fixture}",
+                    detail=f"fixture not found: {fixture}",
                 )
             return IncidentRequest.model_validate(
                 json.loads(fixture_path.read_text(encoding="utf-8"))
             )
         try:
-            return generate_incident(body.payload_size)
+            return generate_incident(payload_size)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -191,6 +216,8 @@ def create_demo_app() -> FastAPI:
         transport: str,
         base: IncidentRequest,
         concurrency: int,
+        *,
+        planner: str = DEFAULT_PLANNER,
     ) -> dict:
         started = time.perf_counter()
 
@@ -198,7 +225,7 @@ def create_demo_app() -> FastAPI:
             request = base.model_copy(
                 update={"incident_id": f"{base.incident_id}-c{concurrency}-i{index}"}
             )
-            return await _run_transport(transport, request)
+            return await _run_transport(transport, request, planner=planner)
 
         results = await asyncio.gather(*[one(i) for i in range(concurrency)])
         wall_ms = (time.perf_counter() - started) * 1000.0
@@ -214,8 +241,17 @@ def create_demo_app() -> FastAPI:
 
     @app.post("/api/analyze")
     async def analyze(body: WorkloadRequest) -> dict:
-        request = _resolve_request(body)
-        wave = await _wave(body.transport, request, body.concurrency)
+        request = _resolve_request(
+            source=body.source,
+            fixture=body.fixture,
+            payload_size=body.payload_size,
+        )
+        wave = await _wave(
+            body.transport,
+            request,
+            body.concurrency,
+            planner=body.planner,
+        )
         return {
             "transport": body.transport,
             "source": body.source,
@@ -232,10 +268,50 @@ def create_demo_app() -> FastAPI:
             "report": wave["report"],
         }
 
+    @app.post("/api/agentic")
+    async def agentic(body: AgenticRequest) -> dict:
+        """Run the observe→decide→act response path and return a step timeline."""
+        request = _resolve_request(
+            source=body.source,
+            fixture=body.fixture,
+            payload_size=body.payload_size,
+        )
+        steps: list[dict] = []
+
+        def on_step(step: AgenticStep) -> None:
+            steps.append(step.model_dump(mode="json"))
+
+        started = time.perf_counter()
+        try:
+            report = await asyncio.to_thread(
+                run_agentic,
+                request,
+                planner=body.planner,
+                on_step=on_step,
+            )
+        except Exception as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        return {
+            "transport": "agentic",
+            "planner": report.agentic_mode or body.planner,
+            "source": body.source,
+            "fixture": body.fixture if body.source == "fixture" else None,
+            "payload_size": len(request.logs),
+            "latency_ms": round(latency_ms, 3),
+            "partial": report.partial,
+            "steps": steps,
+            "report": report.model_dump(mode="json"),
+        }
+
     @app.post("/api/compare")
     async def compare(body: WorkloadRequest) -> dict:
         """Run unary gRPC and HTTP on the same workload side-by-side."""
-        request = _resolve_request(body)
+        request = _resolve_request(
+            source=body.source,
+            fixture=body.fixture,
+            payload_size=body.payload_size,
+        )
         grpc_wave, http_wave = await asyncio.gather(
             _wave("grpc-unary", request, body.concurrency),
             _wave("http-unary", request, body.concurrency),
