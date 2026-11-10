@@ -8,12 +8,14 @@ import json
 from pathlib import Path
 import sys
 
+from agent_connector.agentic import run_agentic
 from agent_connector.config import (
     DEFAULT_ORCHESTRATOR_JSONL_PATH,
+    DEFAULT_PLANNER,
     STREAM_DEADLINE_SECONDS,
     UNARY_DEADLINE_SECONDS,
 )
-from agent_connector.domain.models import IncidentRequest, LogAnalysisEvent
+from agent_connector.domain.models import AgenticStep, IncidentRequest, LogAnalysisEvent
 from agent_connector.orchestrator.jsonl import normalize_jsonl_path
 from agent_connector.orchestrator.orchestrate import AgentEndpoints, orchestrate
 from agent_connector.orchestrator.orchestrate_unary import (
@@ -29,12 +31,35 @@ def _print_stream_event(event: LogAnalysisEvent) -> None:
     print(f"[stream] {event.type.value}: {event.message}{evidence}", flush=True)
 
 
+def _print_agentic_step(step: AgenticStep) -> None:
+    latency = (
+        f" [{step.latency_ms:.1f} ms]"
+        if step.latency_ms is not None
+        else ""
+    )
+    print(
+        f"[agentic] r{step.round} {step.phase}/{step.tool} "
+        f"{step.status.value}{latency}: {step.detail}",
+        flush=True,
+    )
+    if step.phase == "observe":
+        for line in step.observation.splitlines()[:10]:
+            print(f"          {line}", flush=True)
+    elif step.decision and step.phase == "decide":
+        print(f"          reason: {step.decision}", flush=True)
+
+
 def _print_report(report) -> None:
     print()
     print("=== Incident Report ===")
     print(f"incident_id: {report.incident_id}")
     print(f"scenario:    {report.scenario}")
     print(f"partial:     {report.partial}")
+    if report.agentic_mode:
+        print(
+            f"agentic:     {report.agentic_mode} "
+            f"({len(report.agentic_steps)} steps)"
+        )
     print()
     print("Agent outcomes:")
     for outcome in report.agent_outcomes:
@@ -91,9 +116,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--transport",
-        choices=("grpc-stream", "grpc-unary", "http-unary"),
+        choices=("grpc-stream", "grpc-unary", "http-unary", "agentic"),
         default="grpc-stream",
-        help="Workflow transport (default: grpc-stream)",
+        help=(
+            "Workflow transport (default: grpc-stream). "
+            "Use agentic for observe→decide→tool-call coordination."
+        ),
+    )
+    parser.add_argument(
+        "--planner",
+        default=DEFAULT_PLANNER,
+        help=(
+            "Planner for --transport agentic: "
+            "deterministic|openai|cloudflare|http"
+        ),
     )
     parser.add_argument(
         "--severity-target",
@@ -183,7 +219,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     jsonl_path = resolve_jsonl_path(jsonl=args.jsonl, no_jsonl=args.no_jsonl)
 
-    if args.transport == "grpc-stream":
+    if args.transport == "agentic":
+        report = run_agentic(
+            request,
+            planner=args.planner,
+            on_step=_print_agentic_step,
+        )
+    elif args.transport == "grpc-stream":
         report = asyncio.run(
             orchestrate(
                 request,
