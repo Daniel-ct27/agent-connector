@@ -159,3 +159,5 @@ class IncidentReport(BaseModel):
     partial: bool = False
     agentic_mode: str = ""
     agentic_steps: list[AgenticStep] = Field(default_factory=list)
+    planner_degraded: bool = False
+    planner_error: str = ""
