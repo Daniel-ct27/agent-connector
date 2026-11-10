@@ -108,7 +108,14 @@ agent-connector --transport agentic --planner cloudflare scenarios/fixtures/inc-
 | `cloudflare` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional model |
 | `http` | `AGENT_CONNECTOR_PLANNER_URL`, optional `AGENT_CONNECTOR_PLANNER_TOKEN` |
 
-In the demo panel, use **Run agentic response** to watch the live step timeline.
+Optional: `AGENT_CONNECTOR_PLANNER`, `AGENT_CONNECTOR_PLANNER_TIMEOUT_SECONDS`.
+
+Agentic tools run **in-process** (no gRPC/HTTP agent servers required). If a live
+planner fails, the run falls back to deterministic rules and marks
+`planner_degraded` / `agentic_mode=<provider>+fallback` (exit code `1`).
+
+In the demo panel, use **Run agentic response** for the step timeline. The
+timeline renders after the run completes.
 
 ## Log Analysis mode
 
