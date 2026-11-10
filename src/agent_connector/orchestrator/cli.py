@@ -60,6 +60,8 @@ def _print_report(report) -> None:
             f"agentic:     {report.agentic_mode} "
             f"({len(report.agentic_steps)} steps)"
         )
+    if report.planner_degraded:
+        print(f"degraded:    true ({report.planner_error or 'planner fallback'})")
     print()
     print("Agent outcomes:")
     for outcome in report.agent_outcomes:
@@ -258,7 +260,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     _print_report(report)
-    return 1 if report.partial else 0
+    return 1 if report.partial or report.planner_degraded else 0
 
 
 if __name__ == "__main__":
