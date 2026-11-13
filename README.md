@@ -1,12 +1,14 @@
 # Agent Connector
 
-Local multi-agent incident analysis over **gRPC** and **HTTP/JSON**.
+Multi-agent incident analysis over **gRPC** and **HTTP/JSON**.
 
-Three agents take the same incident request:
+Agents:
 
-- **Severity** — score and level
+- **Severity** — flag level and score
+- **Log Analysis** — error patterns and likely cause
 - **Runbook** — troubleshooting steps
-- **Log Analysis** — error patterns and a likely cause (unary or gRPC stream)
+
+The demo panel has two steps: build an agentic incident **package**, then race **delivery** of that same workload over gRPC vs HTTP.
 
 ## Setup
 
@@ -16,158 +18,100 @@ Python 3.11+.
 python -m venv .venv
 ```
 
-Windows PowerShell:
+Windows:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
 ```
 
 macOS / Linux:
 
 ```bash
 source .venv/bin/activate
-```
-
-```bash
 python -m pip install -e ".[dev]"
 ```
 
-Optional OpenAI summarizer for Log Analysis demos:
-
-```bash
-python -m pip install -e ".[llm]"
-```
+Optional LLM extras: `python -m pip install -e ".[llm]"`.
 
 ## Demo panel
-
-Starts a local UI with two independent pages:
 
 ```bash
 agent-connector-demo
 ```
 
-| Page | URL | Purpose |
-|---|---|---|
-| Hub | [http://127.0.0.1:8090/](http://127.0.0.1:8090/) | Choose a demo |
-| Incident Response | [http://127.0.0.1:8090/response](http://127.0.0.1:8090/response) | Agentic observe → decide → act |
-| Protocol Lab | [http://127.0.0.1:8090/lab](http://127.0.0.1:8090/lab) | gRPC vs HTTP races + Stage 7 charts |
+Open http://127.0.0.1:8090/
 
-Each page keeps its own controls and run state.
-
-## Agent processes
-
-### gRPC
-
-| Agent | Address |
+| Page | URL |
 |---|---|
-| Severity | `127.0.0.1:50051` |
-| Runbook | `127.0.0.1:50052` |
-| Log Analysis | `127.0.0.1:50053` |
+| Paddock | `/` |
+| Package | `/response` |
+| Delivery | `/lab` |
+
+On Delivery, use **Arm gRPC** / **Arm HTTP** to start the local agent processes, then drop the flag to compare wall times. Package runs are in-process and do not need those servers.
+
+## Agent servers
+
+Needed for CLI fan-out, benchmarks, and the Delivery race (or start them from the panel).
 
 ```bash
+# gRPC — :50051 :50052 :50053
 python -m agent_connector.servers.severity
 python -m agent_connector.servers.runbook
 python -m agent_connector.servers.log_analysis
-```
 
-### HTTP
-
-| Agent | Address | Route |
-|---|---|---|
-| Severity | `http://127.0.0.1:8001` | `POST /v1/severity/analyze` |
-| Runbook | `http://127.0.0.1:8002` | `POST /v1/runbook/recommend` |
-| Log Analysis | `http://127.0.0.1:8003` | `POST /v1/log-analysis/analyze` |
-
-```bash
+# HTTP — :8001 :8002 :8003
 python -m agent_connector.servers.http_severity
 python -m agent_connector.servers.http_runbook
 python -m agent_connector.servers.http_log_analysis
 ```
 
-Console scripts (`agent-connector-severity`, `agent-connector-http-severity`, …) are available after install.
-
-## Orchestrator CLI
+## CLI
 
 ```bash
 agent-connector scenarios/fixtures/inc-db-001.json
 agent-connector --transport grpc-unary scenarios/fixtures/inc-db-001.json
 agent-connector --transport http-unary scenarios/fixtures/inc-db-001.json
-```
-
-Default transport is `grpc-stream`. Call records append to `logs/orchestrator.jsonl` unless you pass `--no-jsonl`. Exit `0` only when every agent returns `OK`.
-
-### Agentic response path (LLM-agnostic)
-
-Planner inspects logs, then chooses tools (`analyze_logs`, `analyze_severity`,
-`recommend_runbook`, `finish`). Formal gRPC/HTTP benchmarks stay on fan-out.
-
-```bash
 agent-connector --transport agentic scenarios/fixtures/inc-db-001.json
-agent-connector --transport agentic --planner openai scenarios/fixtures/inc-db-001.json
-agent-connector --transport agentic --planner cloudflare scenarios/fixtures/inc-db-001.json
 ```
+
+Default transport is `grpc-stream`. Use `--no-jsonl` to skip `logs/orchestrator.jsonl`. Exit `0` only when every agent returns `OK`.
+
+### Planners (agentic)
 
 | Planner | Env |
 |---|---|
 | `deterministic` (default) | none |
-| `openai` | `OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, `AGENT_CONNECTOR_PLANNER_MODEL` |
-| `cloudflare` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional model |
-| `http` | `AGENT_CONNECTOR_PLANNER_URL`, optional `AGENT_CONNECTOR_PLANNER_TOKEN` |
+| `openai` | `OPENAI_API_KEY` |
+| `cloudflare` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` |
+| `http` | `AGENT_CONNECTOR_PLANNER_URL` |
 
-Optional: `AGENT_CONNECTOR_PLANNER`, `AGENT_CONNECTOR_PLANNER_TIMEOUT_SECONDS`.
-
-Agentic tools run **in-process** (no gRPC/HTTP agent servers required). If a live
-planner fails, the run falls back to deterministic rules and marks
-`planner_degraded` / `agentic_mode=<provider>+fallback` (exit code `1`).
-
-On the **Incident Response** page (`/response`), use **Run agentic response**
-for the live step timeline.
-
-### Connect Cloudflare Workers AI locally
-
-In the Cloudflare dashboard, open Workers AI → Use REST API and create a
-Workers AI API token. Copy the account ID from the same screen. Set both in
-the PowerShell session that will launch Agent Connector:
-
-```powershell
-$env:CLOUDFLARE_ACCOUNT_ID = Read-Host 'Cloudflare account ID'
-$env:CLOUDFLARE_API_TOKEN = Read-Host 'Workers AI API token' -MaskInput
-agent-connector --transport agentic --planner cloudflare --no-jsonl scenarios/fixtures/inc-db-001.json
+```bash
+agent-connector --transport agentic --planner openai scenarios/fixtures/inc-db-001.json
+agent-connector --transport agentic --planner cloudflare scenarios/fixtures/inc-db-001.json
 ```
 
-`-MaskInput` requires PowerShell 7.2 or newer. A successful live fixture run
-exits `0` without planner degradation. Start `agent-connector-demo` from the
-same shell, open `/response`, and choose **cloudflare Workers AI** in the
-planner selector. The token stays in the backend process environment.
+Live planner failure falls back to deterministic and sets `planner_degraded` (exit `1`).
 
-## Log Analysis mode
-
-Default summarizer is deterministic. For a live OpenAI call, set these **before** starting Log Analysis:
+### Log Analysis LLM (optional)
 
 ```text
 AGENT_CONNECTOR_ANALYZER=openai
 OPENAI_API_KEY=...
 ```
 
-Optional: `AGENT_CONNECTOR_LLM_MODEL` (default `gpt-4o-mini`), `AGENT_CONNECTOR_LLM_TIMEOUT_SECONDS` (default `8`).
-
-Keep the deterministic analyzer for benchmark runs.
+Keep deterministic for timed runs.
 
 ## Benchmarks
 
-Start the agent processes first, then:
+Start agent servers first, then:
 
 ```bash
 agent-connector-benchmark --generate-fixtures --summarize
-```
-
-Smoke cell:
-
-```bash
 agent-connector-benchmark --payload-sizes 100 --concurrency 1 --warmup 0 --trials 2 --summarize
 ```
 
-Outputs land under `benchmarks/results/<run_id>/` (`trials.csv`, `summary.csv`, charts).
+Results under `benchmarks/results/<run_id>/`.
 
 ## Tests
 
@@ -177,28 +121,23 @@ python -m pytest -q
 
 ## Protobuf
 
-After editing `proto/incident.proto`:
-
 ```bash
 python -m grpc_tools.protoc -Iagent_connector/generated=proto --python_out=src --pyi_out=src --grpc_python_out=src proto/incident.proto
 ```
 
-Or `bash scripts/generate_proto.sh` / `make proto`. Do not hand-edit `src/agent_connector/generated/`.
+Or `make proto`. Do not hand-edit `src/agent_connector/generated/`.
 
 ## Layout
 
 ```text
-proto/                         Service contracts
-scenarios/fixtures/            Sample incidents
-src/agent_connector/agents/    Agent logic
-src/agent_connector/servers/   gRPC and HTTP processes
+proto/                         contracts
+scenarios/fixtures/            sample incidents
+src/agent_connector/agents/    agent logic
+src/agent_connector/agentic/   planner loop
+src/agent_connector/servers/   gRPC / HTTP / demo panel
 src/agent_connector/orchestrator/
 src/agent_connector/benchmarks/
-src/agent_connector/demo/      Local demo panel
-report/                        Evaluation, demo script, presentation, charts
+src/agent_connector/demo/      UI
+report/                        evaluation + demo notes
 tests/
 ```
-
-## Report materials
-
-Under `report/`: `EVALUATION.md`, `DEMO.md`, `PRESENTATION.md`, `summary.csv`, and `charts/`.
