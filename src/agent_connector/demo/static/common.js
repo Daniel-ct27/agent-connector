@@ -44,7 +44,7 @@ window.DemoCommon = {
   },
 
   async loadFixtureOptions(fixtureEl, payloadEl, concurrencyEl, payloadCustom) {
-    const data = await this.api("/api/fixtures");
+    const data = await DemoCommon.api("/api/fixtures");
     fixtureEl.innerHTML = "";
     for (const name of data.fixtures) {
       const opt = document.createElement("option");
