@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
-<body>
+<body class="ops-page">
   <div class="wrap">
     <nav class="topnav">
       <div class="links">
@@ -20,40 +20,33 @@
       </div>
     </nav>
 
-    <header class="hero">
-      <div class="reveal">
+    <header class="ops-banner reveal">
+      <div>
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
-          <strong>Protocol lab:</strong> same incident agents over
-          <strong>gRPC</strong> and <strong>HTTP/JSON</strong>. Race unary
-          transports, run the stream path, and inspect Stage&nbsp;7 evidence.
+          Protocol race console. Same incident agents, side-by-side gRPC and
+          HTTP/JSON — wall time, findings, and Stage&nbsp;7 evidence for transport decisions.
         </p>
       </div>
-      <aside class="hero-side reveal d2">
-        <h2>On this page</h2>
-        <ol>
-          <li>Start gRPC and HTTP stacks</li>
-          <li>Set workload and concurrency</li>
-          <li>Race unary transports</li>
-          <li>Review live + scored charts</li>
-        </ol>
-      </aside>
+      <div class="ops-meta">
+        <div><span>STACK</span><strong id="lab-stack">CHECKING</strong></div>
+        <div><span>LAST RACE</span><strong id="lab-last">—</strong></div>
+        <div><span>VERDICT</span><strong id="lab-verdict">—</strong></div>
+      </div>
     </header>
 
-    <div class="lab">
-      <section class="panel reveal d2">
-        <h3>Processes</h3>
+    <div class="ops-layout">
+      <section class="panel ops-controls reveal d2">
+        <h3>Agent fabric</h3>
         <div class="controls">
-          <button class="grpc" id="start-grpc" type="button">Start gRPC</button>
-          <button class="http" id="start-http" type="button">Start HTTP</button>
-          <button class="danger" id="stop-all" type="button">Stop all</button>
+          <button class="grpc" id="start-grpc" type="button">Bring up gRPC</button>
+          <button class="http" id="start-http" type="button">Bring up HTTP</button>
+          <button class="danger" id="stop-all" type="button">Tear down</button>
         </div>
         <div class="server-list" id="server-list"></div>
         <p class="msg" id="server-msg"></p>
-      </section>
 
-      <section class="panel reveal d3">
-        <h3>Workload</h3>
+        <h3 style="margin-top:1.1rem">Workload</h3>
         <div class="field-grid">
           <label>
             Source
@@ -87,53 +80,58 @@
             </select>
           </label>
           <label>
-            Stream transport
+            Stream path
             <select id="stream-transport">
               <option value="grpc-stream">gRPC server stream</option>
             </select>
           </label>
         </div>
         <div class="controls">
-          <button class="live" id="race" type="button">Compare unary gRPC vs HTTP</button>
+          <button class="live" id="race" type="button">Race unary transports</button>
           <button class="primary" id="stream" type="button">Run stream path</button>
         </div>
-        <div class="race-grid">
-          <div class="lane grpc">
-            <div class="label">gRPC unary</div>
-            <div class="ms" id="grpc-ms">—<span>ms</span></div>
-            <div class="findings" id="grpc-findings">No run yet.</div>
-          </div>
-          <div class="lane http">
-            <div class="label">HTTP / JSON unary</div>
-            <div class="ms" id="http-ms">—<span>ms</span></div>
-            <div class="findings" id="http-findings">Same workload, JSON over HTTP.</div>
-          </div>
+        <p class="msg" id="run-msg"></p>
+      </section>
+
+      <section class="lab-console reveal d3">
+        <div class="ops-console-head">
+          <h3>Live race board</h3>
+          <span class="status-chip" id="lab-status">idle</span>
         </div>
-        <div class="ratio" id="ratio">Set a load, start both stacks, then compare.</div>
-        <div class="chart-card">
-          <h4>Race wall time — grouped bars</h4>
-          <p class="msg" id="live-empty" style="margin:0 0 0.4rem">
-            Run a compare to plot gRPC vs HTTP side-by-side. More runs add more bar groups.
+        <div class="lab-lanes">
+          <article class="lab-lane grpc hot-ready" id="lane-grpc">
+            <div class="lab-lane-kicker">gRPC unary</div>
+            <div class="lab-lane-ms" id="grpc-ms">—<span>ms</span></div>
+            <div class="lab-lane-body" id="grpc-findings">Waiting for a race.</div>
+          </article>
+          <article class="lab-lane http hot-ready" id="lane-http">
+            <div class="lab-lane-kicker">HTTP / JSON unary</div>
+            <div class="lab-lane-ms" id="http-ms">—<span>ms</span></div>
+            <div class="lab-lane-body" id="http-findings">Same workload, JSON over HTTP.</div>
+          </article>
+        </div>
+        <div class="lab-verdict-bar" id="ratio">Arm both stacks, set load, then race.</div>
+        <div class="lab-chart-block">
+          <div class="lab-chart-head">
+            <h4>Wall-time trace</h4>
+            <div class="controls" style="margin:0">
+              <button class="quiet" id="clear-live" type="button">Clear</button>
+              <button class="quiet" id="reload-evidence" type="button">Reload evidence</button>
+            </div>
+          </div>
+          <p class="msg" id="live-empty" style="margin:0 0 0.4rem;color:rgba(215,226,207,0.55)">
+            Each race appends a grouped bar — gRPC vs HTTP, optional stream.
           </p>
           <div class="chart-wrap" id="live-wrap" style="display:none"><canvas id="chart-live"></canvas></div>
-          <div class="controls" style="margin:0.55rem 0 0">
-            <button class="quiet" id="clear-live" type="button">Clear race chart</button>
-            <button class="quiet" id="reload-evidence" type="button">Reload scored charts</button>
-          </div>
         </div>
-        <p class="msg" id="run-msg"></p>
-        <details>
-          <summary>Raw response</summary>
-          <pre id="report">{}</pre>
-        </details>
       </section>
     </div>
 
-    <section class="evidence panel">
+    <section class="evidence panel lab-evidence">
       <h3>Scored evidence</h3>
       <p class="sub">
-        Interactive Chart.js from <code>report/summary.csv</code> (810 timed trials).
-        Reloads after each demo run so a fresh benchmark export shows without a page refresh.
+        Stage&nbsp;7 benchmark export from <code>report/summary.csv</code>.
+        Reloads after each lab run so fresh numbers land without a refresh.
       </p>
       <div class="chart-grid">
         <div class="chart-card" style="margin-top:0">
@@ -160,6 +158,11 @@
       </table>
       <p class="msg" id="summary-msg"></p>
     </section>
+
+    <details class="ops-raw">
+      <summary>Raw response payload</summary>
+      <pre id="report">{}</pre>
+    </details>
   </div>
 
   <script src="/static/common.js"></script>
@@ -178,12 +181,27 @@
     const reportEl = document.getElementById("report");
     const summaryBody = document.getElementById("summary-body");
     const summaryMsg = document.getElementById("summary-msg");
+    const labStatus = document.getElementById("lab-status");
 
     const { api, findings, syncSource, loadFixtureOptions, chartColors } = DemoCommon;
 
     let charts = { latency: null, throughput: null, ttfe: null };
     let liveChart = null;
     let liveRun = 0;
+
+    function setLabStatus(text, kind) {
+      labStatus.textContent = text;
+      labStatus.className = "status-chip" + (kind ? " " + kind : "");
+    }
+
+    function updateStackMeta(servers) {
+      const up = (servers || []).filter((s) => s.running).length;
+      const total = (servers || []).length || 6;
+      const el = document.getElementById("lab-stack");
+      if (up === 0) el.textContent = "DOWN";
+      else if (up === total) el.textContent = `ONLINE ${up}/${total}`;
+      else el.textContent = `PARTIAL ${up}/${total}`;
+    }
 
     function workloadBody(extra = {}) {
       const source = sourceEl.value;
@@ -202,12 +220,13 @@
 
     function renderServers(servers) {
       serverList.innerHTML = "";
+      updateStackMeta(servers);
       for (const s of servers) {
         const row = document.createElement("div");
         row.className = "server";
         row.innerHTML = `
           <div class="meta"><strong>${s.label}</strong><small>:${s.port}</small></div>
-          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "running" : "stopped"}</span>
+          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "live" : "down"}</span>
           <div class="mini"></div>`;
         const mini = row.querySelector(".mini");
         const start = document.createElement("button");
@@ -217,7 +236,7 @@
           serverMsg.textContent = `Starting ${s.label}…`;
           try {
             await api(`/api/servers/${s.key}/start`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `${s.label} running`;
+            serverMsg.textContent = `${s.label} online`;
             await refreshServers();
           } catch (err) { serverMsg.textContent = err.message; }
         };
@@ -228,7 +247,7 @@
         stop.onclick = async () => {
           try {
             await api(`/api/servers/${s.key}/stop`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `${s.label} stopped`;
+            serverMsg.textContent = `${s.label} down`;
             await refreshServers();
           } catch (err) { serverMsg.textContent = err.message; }
         };
@@ -326,8 +345,11 @@
             y: {
               beginAtZero: true,
               title: { display: true, text: "wall ms" },
-              grid: { color: "rgba(18,24,20,0.07)" },
-              ticks: { font: { family: "IBM Plex Mono", size: 11 } },
+              grid: { color: "rgba(215,226,207,0.08)" },
+              ticks: {
+                color: "rgba(215,226,207,0.7)",
+                font: { family: "IBM Plex Mono", size: 11 },
+              },
             },
           },
         },
@@ -341,7 +363,6 @@
       chart.data.datasets[0].data.push(grpc);
       chart.data.datasets[1].data.push(http);
       chart.data.datasets[2].data.push(stream);
-      // Hide stream series until a stream run exists (keeps compare chart clean).
       const hasStream = chart.data.datasets[2].data.some((v) => v != null);
       const hasUnary = chart.data.datasets[0].data.some((v) => v != null)
         || chart.data.datasets[1].data.some((v) => v != null);
@@ -459,44 +480,46 @@
     sourceEl.onchange = () =>
       syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     document.getElementById("start-grpc").onclick = async () => {
-      serverMsg.textContent = "Starting gRPC processes…";
+      serverMsg.textContent = "Bringing up gRPC fabric…";
       try {
         await api("/api/servers/start-grpc", { method: "POST", body: "{}" });
-        serverMsg.textContent = "gRPC listening on 50051–50053";
+        serverMsg.textContent = "gRPC online on 50051–50053";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
     document.getElementById("start-http").onclick = async () => {
-      serverMsg.textContent = "Starting HTTP processes…";
+      serverMsg.textContent = "Bringing up HTTP fabric…";
       try {
         await api("/api/servers/start-http", { method: "POST", body: "{}" });
-        serverMsg.textContent = "HTTP listening on 8001–8003";
+        serverMsg.textContent = "HTTP online on 8001–8003";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
     document.getElementById("stop-all").onclick = async () => {
       try {
         await api("/api/servers/stop-all", { method: "POST", body: "{}" });
-        serverMsg.textContent = "Stopped managed processes";
+        serverMsg.textContent = "All managed agents down";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
 
     document.getElementById("clear-live").onclick = () => {
       clearLiveChart();
-      runMsg.textContent = "Race chart cleared";
+      runMsg.textContent = "Wall-time trace cleared";
+      document.getElementById("lab-last").textContent = "—";
     };
     document.getElementById("reload-evidence").onclick = async () => {
       try {
         await loadSummary();
-        runMsg.textContent = "Scored charts reloaded";
+        runMsg.textContent = "Scored evidence reloaded";
       } catch (err) {
         runMsg.textContent = err.message;
       }
     };
 
     document.getElementById("race").onclick = async () => {
-      runMsg.textContent = "Comparing unary transports…";
+      setLabStatus("racing", "running");
+      runMsg.textContent = "Racing unary gRPC vs HTTP…";
       try {
         const data = await api("/api/compare", {
           method: "POST",
@@ -518,10 +541,24 @@
           data.http.mean_request_latency_ms,
           data.concurrency
         );
-        document.getElementById("ratio").textContent =
+        const winner =
+          data.grpc.wall_latency_ms <= data.http.wall_latency_ms ? "gRPC" : "HTTP";
+        const ratioText =
           data.http_over_grpc_ratio == null
             ? "Ratio unavailable"
             : `HTTP wall ${data.http_over_grpc_ratio}× gRPC · ${data.log_count} logs · x${data.concurrency}`;
+        document.getElementById("ratio").textContent = `${winner} led · ${ratioText}`;
+        document.getElementById("lab-verdict").textContent = winner;
+        document.getElementById("lab-last").textContent =
+          `${data.log_count}×${data.concurrency}`;
+        document.getElementById("lane-grpc").classList.toggle(
+          "winner",
+          winner === "gRPC"
+        );
+        document.getElementById("lane-http").classList.toggle(
+          "winner",
+          winner === "HTTP"
+        );
         reportEl.textContent = JSON.stringify(data, null, 2);
         liveRun += 1;
         pushLivePoint(`#${liveRun} · ${data.log_count}×${data.concurrency}`, {
@@ -529,13 +566,16 @@
           http: data.http.wall_latency_ms,
         });
         await afterRun();
-        runMsg.textContent = "Comparison finished — charts refreshed";
+        setLabStatus("complete", "ok");
+        runMsg.textContent = "Race complete — board + evidence updated";
       } catch (err) {
+        setLabStatus("fault", "degraded");
         runMsg.textContent = err.message;
       }
     };
 
     document.getElementById("stream").onclick = async () => {
+      setLabStatus("streaming", "running");
       runMsg.textContent = "Running gRPC stream path…";
       try {
         const data = await api("/api/analyze", {
@@ -552,14 +592,21 @@
             data.concurrency
           ) +
           `<div>stream events: ${(data.report.log_analysis_events || []).length}</div>`;
+        document.getElementById("ratio").textContent =
+          `Stream path ${data.latency_ms.toFixed(1)} ms · ${data.payload_size} logs · x${data.concurrency}`;
+        document.getElementById("lab-verdict").textContent = "STREAM";
+        document.getElementById("lab-last").textContent =
+          `stream ${data.payload_size}×${data.concurrency}`;
         reportEl.textContent = JSON.stringify(data, null, 2);
         liveRun += 1;
         pushLivePoint(`#${liveRun} · stream ${data.payload_size}×${data.concurrency}`, {
           stream: data.latency_ms,
         });
         await afterRun();
-        runMsg.textContent = "Stream path finished — charts refreshed";
+        setLabStatus("complete", "ok");
+        runMsg.textContent = "Stream path complete — board + evidence updated";
       } catch (err) {
+        setLabStatus("fault", "degraded");
         runMsg.textContent = err.message;
       }
     };
@@ -567,6 +614,7 @@
     syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     Promise.all([refreshServers(), loadFixtures(), loadSummary()]).catch((err) => {
       serverMsg.textContent = err.message;
+      document.getElementById("lab-stack").textContent = "ERROR";
     });
   </script>
 </body>
