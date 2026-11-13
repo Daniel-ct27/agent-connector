@@ -7,8 +7,11 @@ from collections.abc import Callable
 from agent_connector.agentic.observe import observe_incident
 from agent_connector.agentic.providers import PlannerContext, PlannerProvider, build_planner
 from agent_connector.agentic.tools import (
+    TOOL_ANALYZE_LOGS,
+    TOOL_ANALYZE_SEVERITY,
     TOOL_FINISH,
     TOOL_HEADLINES,
+    TOOL_RECOMMEND_RUNBOOK,
     ToolResult,
     execute_tool,
     outcome_from_result,
@@ -31,6 +34,13 @@ _TOOL_LABELS = {
     "recommend_runbook": "runbook match",
     "finish": "handoff",
 }
+
+# Always ship a full engineer helpdesk package, even if the planner under-calls.
+_DESK_TOOLS = (
+    TOOL_ANALYZE_LOGS,
+    TOOL_ANALYZE_SEVERITY,
+    TOOL_RECOMMEND_RUNBOOK,
+)
 
 
 def run_agentic(
@@ -56,11 +66,104 @@ def run_agentic(
     planner_degraded = False
     planner_errors: list[str] = []
     forced_finish = False
+    desk_completed = False
 
     def record(step: AgenticStep) -> None:
         steps.append(step)
         if on_step is not None:
             on_step(step)
+
+    def dispatch(tool_name: str, *, round_index: int, reason: str, desk_fill: bool = False):
+        nonlocal severity, runbook, log_analysis
+        result = execute_tool(tool_name, request)
+        context.called_tools.add(tool_name)
+        context.tool_notes.append(f"{tool_name}: {result.detail}")
+        severity, runbook, log_analysis = _merge_result(
+            result,
+            severity=severity,
+            runbook=runbook,
+            log_analysis=log_analysis,
+        )
+        outcome = outcome_from_result(result)
+        if outcome is not None:
+            outcomes[outcome.name] = outcome
+        headline = result.headline or TOOL_HEADLINES.get(tool_name, tool_name)
+        if desk_fill:
+            headline = f"{headline} · desk completion"
+        record(
+            AgenticStep(
+                round=round_index,
+                phase="act",
+                observation=observation,
+                decision=reason,
+                tool=tool_name,
+                headline=headline,
+                status=result.status,
+                detail=result.detail,
+                artifact=result.artifact,
+                latency_ms=result.latency_ms,
+            )
+        )
+        return result
+
+    def complete_helpdesk(*, round_index: int, note: str = "") -> None:
+        """Guarantee logs + severity + runbook before handoff."""
+        nonlocal desk_completed
+        missing = [tool for tool in _DESK_TOOLS if tool not in context.called_tools]
+        if missing:
+            record(
+                AgenticStep(
+                    round=round_index,
+                    phase="decide",
+                    observation=observation,
+                    decision="complete engineer helpdesk package",
+                    tool="plan",
+                    headline="Helpdesk completion",
+                    status=AgentStatus.OK,
+                    detail=(
+                        "Coordinator under-dispatched. Completing the engineer package: "
+                        + ", ".join(_TOOL_LABELS.get(tool, tool) for tool in missing)
+                        + "."
+                    ),
+                    artifact={
+                        "kind": "plan",
+                        "tools": missing,
+                        "reason": "helpdesk completion",
+                        "degraded": False,
+                    },
+                )
+            )
+            for tool_name in missing:
+                dispatch(
+                    tool_name,
+                    round_index=round_index,
+                    reason="helpdesk completion",
+                    desk_fill=True,
+                )
+            desk_completed = True
+
+        record(
+            AgenticStep(
+                round=round_index,
+                phase="finish",
+                observation=observation,
+                decision="engineer handoff",
+                tool=TOOL_FINISH,
+                headline="Engineer handoff",
+                status=AgentStatus.OK,
+                detail=_finish_detail(
+                    severity=severity,
+                    runbook=runbook,
+                    log_analysis=log_analysis,
+                    note=note or "Helpdesk package ready for the on-call engineer.",
+                ),
+                artifact=_finish_artifact(
+                    severity=severity,
+                    runbook=runbook,
+                    log_analysis=log_analysis,
+                ),
+            )
+        )
 
     services = sorted({entry.service for entry in request.logs if entry.service})
     error_like = sum(
@@ -108,9 +211,7 @@ def run_agentic(
         ]
         decide_detail = decision.reason or "Coordinator selected next actions."
         if tool_labels:
-            decide_detail = (
-                f"Queue: {', '.join(tool_labels)}. {decide_detail}"
-            )
+            decide_detail = f"Queue: {', '.join(tool_labels)}. {decide_detail}"
         if decision.error:
             decide_detail = f"{decide_detail} ({decision.error})"
 
@@ -137,31 +238,7 @@ def run_agentic(
 
         tools = [name for name in decision.tools if name]
         if not tools or (TOOL_FINISH in tools and len(tools) == 1):
-            record(
-                AgenticStep(
-                    round=round_index,
-                    phase="finish",
-                    observation=observation,
-                    decision=decision.reason or "finish",
-                    tool=TOOL_FINISH,
-                    headline=TOOL_HEADLINES[TOOL_FINISH],
-                    status=(
-                        AgentStatus.PARTIAL if decision.degraded else AgentStatus.OK
-                    ),
-                    detail=_finish_detail(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                        degraded=decision.degraded,
-                        error=decision.error,
-                    ),
-                    artifact=_finish_artifact(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                    ),
-                )
-            )
+            complete_helpdesk(round_index=round_index)
             finished = True
             break
 
@@ -187,122 +264,41 @@ def run_agentic(
                 )
                 continue
 
-            result = execute_tool(tool_name, request)
+            dispatch(
+                tool_name,
+                round_index=round_index,
+                reason=decision.reason or "planner selected tools",
+            )
             acted = True
-            context.called_tools.add(tool_name)
-            context.tool_notes.append(f"{tool_name}: {result.detail}")
-            severity, runbook, log_analysis = _merge_result(
-                result,
-                severity=severity,
-                runbook=runbook,
-                log_analysis=log_analysis,
-            )
-            outcome = outcome_from_result(result)
-            if outcome is not None:
-                outcomes[outcome.name] = outcome
-            record(
-                AgenticStep(
-                    round=round_index,
-                    phase="act",
-                    observation=observation,
-                    decision=decision.reason,
-                    tool=tool_name,
-                    headline=result.headline or TOOL_HEADLINES.get(tool_name, tool_name),
-                    status=result.status,
-                    detail=result.detail,
-                    artifact=result.artifact,
-                    latency_ms=result.latency_ms,
-                )
-            )
 
         if TOOL_FINISH in tools:
-            record(
-                AgenticStep(
-                    round=round_index,
-                    phase="finish",
-                    observation=observation,
-                    decision=decision.reason or "finish",
-                    tool=TOOL_FINISH,
-                    headline=TOOL_HEADLINES[TOOL_FINISH],
-                    status=AgentStatus.OK,
-                    detail=_finish_detail(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                    ),
-                    artifact=_finish_artifact(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                    ),
-                )
-            )
+            complete_helpdesk(round_index=round_index)
             finished = True
             break
 
         if not acted:
-            implicit_ok = bool(outcomes)
-            if not implicit_ok:
+            if not outcomes:
                 planner_degraded = True
                 planner_errors.append("planner repeated already-called tools")
-            record(
-                AgenticStep(
-                    round=round_index,
-                    phase="finish",
-                    observation=observation,
-                    decision="no new tools selected",
-                    tool=TOOL_FINISH,
-                    headline=TOOL_HEADLINES[TOOL_FINISH],
-                    status=(
-                        AgentStatus.OK if implicit_ok else AgentStatus.PARTIAL
-                    ),
-                    detail=_finish_detail(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                        note=(
-                            "No unused tools remained."
-                            if implicit_ok
-                            else "Coordinator stalled on already-used tools."
-                        ),
-                    ),
-                    artifact=_finish_artifact(
-                        severity=severity,
-                        runbook=runbook,
-                        log_analysis=log_analysis,
-                    ),
-                )
+                forced_finish = True
+            complete_helpdesk(
+                round_index=round_index,
+                note=(
+                    "Planner stalled; helpdesk completion filled the remaining package."
+                    if outcomes
+                    else "Planner stalled with no findings; helpdesk completion recovered the package."
+                ),
             )
             finished = True
-            if not implicit_ok:
-                forced_finish = True
             break
 
     if not finished:
         forced_finish = True
         planner_degraded = True
         planner_errors.append("forced finish after max_rounds")
-        record(
-            AgenticStep(
-                round=max_rounds + 1,
-                phase="finish",
-                observation=observation,
-                decision="max rounds reached",
-                tool=TOOL_FINISH,
-                headline=TOOL_HEADLINES[TOOL_FINISH],
-                status=AgentStatus.PARTIAL,
-                detail=_finish_detail(
-                    severity=severity,
-                    runbook=runbook,
-                    log_analysis=log_analysis,
-                    note="Stopped at max coordinator rounds.",
-                ),
-                artifact=_finish_artifact(
-                    severity=severity,
-                    runbook=runbook,
-                    log_analysis=log_analysis,
-                ),
-            )
+        complete_helpdesk(
+            round_index=max_rounds + 1,
+            note="Max rounds reached; helpdesk completion filled the remaining package.",
         )
 
     ordered_outcomes = list(outcomes.values())
@@ -312,9 +308,21 @@ def run_agentic(
         or (not ordered_outcomes)
         or any(item.status != AgentStatus.OK for item in ordered_outcomes)
     )
+    # A completed desk package is useful even if the live planner under-called.
+    if (
+        desk_completed
+        and severity is not None
+        and runbook is not None
+        and log_analysis is not None
+        and all(item.status == AgentStatus.OK for item in ordered_outcomes)
+    ):
+        partial = planner_degraded or forced_finish
+
     mode = active.name
     if planner_degraded and active.name != "deterministic":
         mode = f"{active.name}+fallback"
+    elif desk_completed and active.name != "deterministic":
+        mode = f"{active.name}+desk"
 
     return IncidentReport(
         incident_id=request.incident_id,
@@ -344,17 +352,14 @@ def _finish_detail(
     if note:
         parts.append(note)
     if log_analysis is not None:
-        parts.append(
-            f"Cause: {log_analysis.likely_cause or 'unknown'}"
-        )
+        parts.append(f"Cause: {log_analysis.likely_cause or 'unknown'}")
     if severity is not None:
-        parts.append(
-            f"Severity {severity.level.value} (score {severity.score})"
-        )
+        parts.append(f"Severity {severity.level.value} (score {severity.score})")
     if runbook is not None and runbook.recommendations:
         top = runbook.recommendations[0]
+        actions = "; ".join(step.action for step in top.steps[:3]) or "see runbook"
         parts.append(
-            f"Runbook: {top.title} ({round(top.confidence * 100)}%)"
+            f"Recommended: {top.title} ({round(top.confidence * 100)}%) — {actions}"
         )
     elif runbook is not None:
         parts.append("No runbook match")
@@ -378,7 +383,7 @@ def _finish_artifact(*, severity, runbook, log_analysis) -> dict[str, object]:
         artifact["runbook"] = {
             "title": top.title,
             "confidence": top.confidence,
-            "actions": [step.action for step in top.steps[:3]],
+            "actions": [step.action for step in top.steps[:5]],
         }
     if log_analysis is not None:
         artifact["logs"] = {

@@ -110,7 +110,7 @@ def test_openai_fallback_marks_degraded_mode() -> None:
     assert any(step.status == AgentStatus.PARTIAL for step in report.agentic_steps)
 
 
-def test_repeated_tools_finish_cleanly_when_outcomes_exist() -> None:
+def test_repeated_tools_still_complete_helpdesk_package() -> None:
     class StickyPlanner:
         name = "sticky"
 
@@ -118,12 +118,27 @@ def test_repeated_tools_finish_cleanly_when_outcomes_exist() -> None:
             return PlanDecision(tools=(TOOL_ANALYZE_LOGS,), reason="again")
 
     report = run_agentic(_load_db_incident(), planner=StickyPlanner(), max_rounds=3)
-    assert not report.planner_degraded
-    assert not report.partial
     assert report.log_analysis is not None
+    assert report.severity is not None
+    assert report.runbook is not None
+    assert report.runbook.recommendations
     assert any("already completed earlier" in step.detail for step in report.agentic_steps)
+    assert any("Helpdesk completion" in (step.headline or "") for step in report.agentic_steps)
     assert any(step.phase == "finish" for step in report.agentic_steps)
-    assert report.severity is not None or report.log_analysis is not None
+
+
+def test_finish_only_planner_still_ships_helpdesk_package() -> None:
+    class FinishOnlyPlanner:
+        name = "finish_only"
+
+        def decide(self, request, context):
+            return PlanDecision(tools=(TOOL_FINISH,), reason="done")
+
+    report = run_agentic(_load_db_incident(), planner=FinishOnlyPlanner(), max_rounds=2)
+    assert report.log_analysis is not None
+    assert report.severity is not None
+    assert report.runbook is not None
+    assert any("desk completion" in (step.headline or "") for step in report.agentic_steps)
 
 
 def test_cloudflare_planner_reads_response_field() -> None:
