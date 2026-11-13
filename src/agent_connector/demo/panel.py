@@ -85,12 +85,19 @@ def create_demo_app() -> FastAPI:
             name="charts",
         )
 
+    def _html_page(name: str) -> HTMLResponse:
+        page_path = STATIC_DIR / name
+        if not page_path.is_file():
+            raise HTTPException(status_code=500, detail=f"demo UI missing: {name}")
+        return HTMLResponse(page_path.read_text(encoding="utf-8"))
+
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
-        index_path = STATIC_DIR / "index.html"
-        if not index_path.is_file():
-            raise HTTPException(status_code=500, detail="demo UI missing")
-        return HTMLResponse(index_path.read_text(encoding="utf-8"))
+        return _html_page("index.html")
+
+    @app.get("/response", response_class=HTMLResponse)
+    async def response_page() -> HTMLResponse:
+        return _html_page("response.html")
 
     @app.get("/api/servers")
     async def servers() -> dict:

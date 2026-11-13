@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Incident Response · Agent Connector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/demo.css" />
+</head>
+<body>
+  <div class="wrap">
+    <nav class="topnav">
+      <div class="links">
+        <a href="/">Hub</a>
+        <a class="active" href="/response">Incident Response</a>
+        <a href="/lab">Protocol Lab</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="reveal">
+        <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
+        <p class="question">
+          <strong>Incident response desk:</strong> the agentic planner observes
+          the incident, chooses tools, and acts — streamed live for engineers
+          watching the fix path.
+        </p>
+      </div>
+      <aside class="hero-side reveal d2">
+        <h2>On this page</h2>
+        <ol>
+          <li>Pick a fixture or generated load</li>
+          <li>Choose a planner</li>
+          <li>Run agentic response</li>
+          <li>Watch the live step timeline</li>
+        </ol>
+      </aside>
+    </header>
+
+    <div class="lab single">
+      <section class="panel reveal d2">
+        <h3>Incident workload</h3>
+        <div class="field-grid">
+          <label>
+            Source
+            <select id="source">
+              <option value="fixture" selected>Saved scenario fixture</option>
+              <option value="generated">Generated synthetic load</option>
+            </select>
+          </label>
+          <label id="fixture-field">
+            Fixture
+            <select id="fixture"></select>
+          </label>
+          <label id="payload-field" class="hidden">
+            Log lines
+            <select id="payload">
+              <option value="100">100</option>
+              <option value="1000" selected>1,000</option>
+              <option value="5000">5,000</option>
+            </select>
+          </label>
+          <label id="payload-custom-field" class="hidden">
+            Custom log lines
+            <input id="payload-custom" type="number" min="1" max="5000" placeholder="or type 250–5000" />
+          </label>
+          <label>
+            Planner
+            <select id="planner">
+              <option value="deterministic" selected>deterministic (offline)</option>
+              <option value="openai">openai-compatible</option>
+              <option value="cloudflare">cloudflare Workers AI</option>
+              <option value="http">custom HTTP</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint" id="planner-help">
+          Deterministic needs no API key. Live planners use env vars from the README.
+        </p>
+        <div class="controls" style="margin-top:0.75rem">
+          <button class="primary" id="agentic" type="button">Run agentic response</button>
+        </div>
+        <p class="hint">No gRPC/HTTP agent servers required — this path runs in-process.</p>
+        <p class="msg" id="run-msg"></p>
+      </section>
+
+      <section class="panel reveal d3">
+        <div class="agentic-desk" id="agentic-card">
+          <div class="agentic-desk-head">
+            <h4>Response desk</h4>
+            <span class="status-chip" id="agentic-status">idle</span>
+          </div>
+          <p class="hint" id="agentic-empty">
+            Observes the incident, decides which tools to call, then acts —
+            streamed live like an on-call console.
+          </p>
+          <div class="progress-track" id="agentic-progress"><div class="progress-bar"></div></div>
+          <ol id="agentic-timeline" class="agentic-timeline"></ol>
+          <div class="result-grid" id="agentic-results">
+            <div class="result-card"><div class="kicker">Severity</div><div class="body" id="card-severity">Waiting…</div></div>
+            <div class="result-card"><div class="kicker">Runbook</div><div class="body" id="card-runbook">Waiting…</div></div>
+            <div class="result-card"><div class="kicker">Log analysis</div><div class="body" id="card-logs">Waiting…</div></div>
+          </div>
+          <div class="findings" id="agentic-findings" style="margin-top:0.65rem">No agentic run yet.</div>
+        </div>
+        <details>
+          <summary>Raw response</summary>
+          <pre id="report">{}</pre>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script>
+    const { api, findings, syncSource, loadFixtureOptions } = DemoCommon;
+    const runMsg = document.getElementById("run-msg");
+    const sourceEl = document.getElementById("source");
+    const fixtureEl = document.getElementById("fixture");
+    const fixtureField = document.getElementById("fixture-field");
+    const payloadField = document.getElementById("payload-field");
+    const payloadCustomField = document.getElementById("payload-custom-field");
+    const payloadEl = document.getElementById("payload");
+    const payloadCustom = document.getElementById("payload-custom");
+    const reportEl = document.getElementById("report");
+
+    const plannerHelp = {
+      deterministic: "Offline rules — no API key. Best for demos and CI.",
+      openai: "Needs OPENAI_API_KEY (or compatible base URL + key).",
+      cloudflare: "Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN.",
+      http: "Needs AGENT_CONNECTOR_PLANNER_URL pointing at your planner.",
+    };
+
+    function workloadBody() {
+      const source = sourceEl.value;
+      const custom = Number(payloadCustom.value);
+      const payload_size = Number.isFinite(custom) && custom > 0
+        ? custom
+        : Number(payloadEl.value);
+      return {
+        source,
+        fixture: fixtureEl.value,
+        payload_size,
+        planner: document.getElementById("planner").value,
+      };
+    }
+
+    function setAgenticStatus(text, kind) {
+      const chip = document.getElementById("agentic-status");
+      chip.textContent = text;
+      chip.className = "status-chip" + (kind ? " " + kind : "");
+    }
+
+    function setAgenticProgress(on) {
+      document.getElementById("agentic-progress").classList.toggle("on", !!on);
+    }
+
+    function appendAgenticStep(step, index) {
+      const list = document.getElementById("agentic-timeline");
+      const li = document.createElement("li");
+      li.className = `phase-${step.phase || "act"}`;
+      li.style.animationDelay = `${Math.min(index, 12) * 40}ms`;
+      const latency =
+        step.latency_ms == null ? "" : ` · ${Number(step.latency_ms).toFixed(1)} ms`;
+      li.innerHTML =
+        `<div class="meta">r${step.round} · ${step.phase}/${step.tool} · ${step.status}${latency}</div>` +
+        `<div><strong>${step.decision || step.tool}</strong></div>` +
+        `<div>${step.detail || ""}</div>`;
+      list.appendChild(li);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function fillAgenticCards(report) {
+      const sev = report && report.severity;
+      const rb = report && report.runbook;
+      const log = report && report.log_analysis;
+      const top = rb && (rb.recommendations || [])[0];
+      document.getElementById("card-severity").textContent = sev
+        ? `${sev.level} (score ${sev.score}) — ${sev.rationale || "n/a"}`
+        : "Waiting…";
+      document.getElementById("card-runbook").textContent = top
+        ? `${top.title} (${Math.round((top.confidence || 0) * 100)}%) — ${(top.steps || [])
+            .slice(0, 2)
+            .map((s) => s.action)
+            .join(" · ") || "matched"}`
+        : "Waiting…";
+      document.getElementById("card-logs").textContent = log
+        ? `${log.likely_cause || "cause unknown"} — ${(log.summary || "").slice(0, 140)}`
+        : "Waiting…";
+    }
+
+    function paintAgenticResult(data) {
+      const degraded = data.planner_degraded
+        ? `<div style="color:#b42318">degraded: ${data.planner_error || "planner fallback"}</div>`
+        : "";
+      document.getElementById("agentic-findings").innerHTML =
+        findings(data.report, data.latency_ms, data.latency_ms, 1) +
+        `<div>planner: ${data.planner} · steps: ${(data.steps || []).length}</div>` +
+        degraded;
+      fillAgenticCards(data.report || {});
+      reportEl.textContent = JSON.stringify(data, null, 2);
+      setAgenticStatus(
+        data.planner_degraded ? "degraded" : "done",
+        data.planner_degraded ? "degraded" : "ok"
+      );
+    }
+
+    sourceEl.onchange = () =>
+      syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
+    document.getElementById("planner").onchange = () => {
+      const value = document.getElementById("planner").value;
+      document.getElementById("planner-help").textContent =
+        plannerHelp[value] || plannerHelp.deterministic;
+    };
+
+    document.getElementById("agentic").onclick = async () => {
+      const button = document.getElementById("agentic");
+      button.disabled = true;
+      const list = document.getElementById("agentic-timeline");
+      list.innerHTML = "";
+      fillAgenticCards({});
+      setAgenticStatus("running", "running");
+      setAgenticProgress(true);
+      runMsg.textContent = "Streaming agentic observe → decide → act…";
+      let stepIndex = 0;
+      try {
+        const body = workloadBody();
+        const res = await fetch("/api/agentic/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || res.statusText || "agentic stream failed");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let finalData = null;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const msg = JSON.parse(line);
+            if (msg.event === "step") {
+              appendAgenticStep(msg.data, stepIndex++);
+              setAgenticStatus(`${msg.data.phase || "act"} · ${msg.data.tool || "…"}`, "running");
+            } else if (msg.event === "done") {
+              finalData = msg.data;
+            } else if (msg.event === "error") {
+              throw new Error(msg.data.detail || "agentic run failed");
+            }
+          }
+        }
+        if (!finalData) throw new Error("agentic stream ended without result");
+        if (stepIndex === 0 && (finalData.steps || []).length) {
+          finalData.steps.forEach((step, i) => appendAgenticStep(step, i));
+        }
+        paintAgenticResult(finalData);
+        runMsg.textContent = finalData.planner_degraded
+          ? "Agentic response finished with planner degradation"
+          : "Agentic response finished — live timeline + cards updated";
+      } catch (err) {
+        setAgenticStatus("error", "degraded");
+        runMsg.textContent = err.message;
+      } finally {
+        setAgenticProgress(false);
+        button.disabled = false;
+      }
+    };
+
+    syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
+    loadFixtureOptions(fixtureEl, payloadEl, null, payloadCustom).catch((err) => {
+      runMsg.textContent = err.message;
+    });
+  </script>
+</body>
+</html>

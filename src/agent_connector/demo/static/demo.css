@@ -341,3 +341,79 @@
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.75rem;
     }
+
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0 0;
+}
+.topnav .links { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.topnav a {
+  text-decoration: none;
+  color: var(--mute);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+}
+.topnav a:hover { color: var(--ink); border-color: var(--line); background: #fff; }
+.topnav a.active {
+  color: var(--ink);
+  background: var(--signal);
+  border-color: #a8c61f;
+}
+.brand a { color: inherit; text-decoration: none; }
+.lab.single { grid-template-columns: 1fr; }
+.hub-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.4rem;
+}
+@media (min-width: 800px) {
+  .hub-grid { grid-template-columns: 1fr 1fr; }
+}
+.hub-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.35rem 1.25rem 1.45rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.hub-card:hover {
+  transform: translateY(-2px);
+  border-color: #9aa893;
+}
+.hub-card h3 {
+  margin: 0 0 0.55rem;
+  font-family: Syne, sans-serif;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+.hub-card p {
+  margin: 0;
+  color: var(--mute);
+  line-height: 1.45;
+  font-size: 0.98rem;
+}
+.hub-card .cta {
+  display: inline-block;
+  margin-top: 1rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--signal);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+}
+.hero-side p { margin: 0; padding-left: 0; color: #c9d2c4; font-size: 0.92rem; line-height: 1.45; }
