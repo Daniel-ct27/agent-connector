@@ -8,6 +8,7 @@ from agent_connector.agentic.observe import observe_incident
 from agent_connector.agentic.providers import PlannerContext, PlannerProvider, build_planner
 from agent_connector.agentic.tools import (
     TOOL_FINISH,
+    TOOL_HEADLINES,
     ToolResult,
     execute_tool,
     outcome_from_result,
@@ -19,9 +20,17 @@ from agent_connector.domain.models import (
     AgenticStep,
     IncidentReport,
     IncidentRequest,
+    LogLevel,
 )
 
 StepHook = Callable[[AgenticStep], None]
+
+_TOOL_LABELS = {
+    "analyze_logs": "log forensics",
+    "analyze_severity": "severity scoring",
+    "recommend_runbook": "runbook match",
+    "finish": "handoff",
+}
 
 
 def run_agentic(
@@ -53,15 +62,35 @@ def run_agentic(
         if on_step is not None:
             on_step(step)
 
+    services = sorted({entry.service for entry in request.logs if entry.service})
+    error_like = sum(
+        1
+        for entry in request.logs
+        if entry.level in {LogLevel.ERROR, LogLevel.FATAL}
+    )
     record(
         AgenticStep(
             round=0,
             phase="observe",
             observation=observation,
-            decision="observe incident logs",
+            decision="ingest live incident signals",
             tool="observe",
+            headline=TOOL_HEADLINES["observe"],
             status=AgentStatus.OK,
-            detail="built compact log observation for planner",
+            detail=(
+                f"Ingested {len(request.logs)} log lines across "
+                f"{len(services)} service(s); {error_like} ERROR/FATAL events. "
+                f"Incident {request.incident_id}."
+            ),
+            artifact={
+                "kind": "observe",
+                "incident_id": request.incident_id,
+                "scenario": request.scenario,
+                "log_count": len(request.logs),
+                "service_count": len(services),
+                "error_like_count": error_like,
+                "services": services[:8],
+            },
         )
     )
 
@@ -74,6 +103,17 @@ def run_agentic(
             if decision.error:
                 planner_errors.append(decision.error)
 
+        tool_labels = [
+            _TOOL_LABELS.get(name, name) for name in decision.tools if name
+        ]
+        decide_detail = decision.reason or "Coordinator selected next actions."
+        if tool_labels:
+            decide_detail = (
+                f"Queue: {', '.join(tool_labels)}. {decide_detail}"
+            )
+        if decision.error:
+            decide_detail = f"{decide_detail} ({decision.error})"
+
         record(
             AgenticStep(
                 round=round_index,
@@ -81,15 +121,17 @@ def run_agentic(
                 observation=observation,
                 decision=decision.reason or "planner selected tools",
                 tool="plan",
+                headline=TOOL_HEADLINES["plan"],
                 status=(
                     AgentStatus.PARTIAL if decision.degraded else AgentStatus.OK
                 ),
-                detail=", ".join(decision.tools)
-                + (
-                    f" | {decision.error}"
-                    if decision.error
-                    else ""
-                ),
+                detail=decide_detail,
+                artifact={
+                    "kind": "plan",
+                    "tools": list(decision.tools),
+                    "reason": decision.reason,
+                    "degraded": decision.degraded,
+                },
             )
         )
 
@@ -102,13 +144,21 @@ def run_agentic(
                     observation=observation,
                     decision=decision.reason or "finish",
                     tool=TOOL_FINISH,
+                    headline=TOOL_HEADLINES[TOOL_FINISH],
                     status=(
                         AgentStatus.PARTIAL if decision.degraded else AgentStatus.OK
                     ),
-                    detail=(
-                        decision.error or "planner requested finish"
-                        if decision.degraded
-                        else "planner requested finish"
+                    detail=_finish_detail(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
+                        degraded=decision.degraded,
+                        error=decision.error,
+                    ),
+                    artifact=_finish_artifact(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
                     ),
                 )
             )
@@ -127,8 +177,12 @@ def run_agentic(
                         observation=observation,
                         decision=decision.reason,
                         tool=tool_name,
+                        headline=TOOL_HEADLINES.get(tool_name, tool_name),
                         status=AgentStatus.PARTIAL,
-                        detail="skipped; tool already called this run",
+                        detail=(
+                            f"{_TOOL_LABELS.get(tool_name, tool_name).title()} "
+                            "already completed earlier in this response — skipping."
+                        ),
                     )
                 )
                 continue
@@ -153,8 +207,10 @@ def run_agentic(
                     observation=observation,
                     decision=decision.reason,
                     tool=tool_name,
+                    headline=result.headline or TOOL_HEADLINES.get(tool_name, tool_name),
                     status=result.status,
                     detail=result.detail,
+                    artifact=result.artifact,
                     latency_ms=result.latency_ms,
                 )
             )
@@ -167,17 +223,24 @@ def run_agentic(
                     observation=observation,
                     decision=decision.reason or "finish",
                     tool=TOOL_FINISH,
+                    headline=TOOL_HEADLINES[TOOL_FINISH],
                     status=AgentStatus.OK,
-                    detail="planner requested finish after tool calls",
+                    detail=_finish_detail(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
+                    ),
+                    artifact=_finish_artifact(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
+                    ),
                 )
             )
             finished = True
             break
 
         if not acted:
-            # Weak planners sometimes re-propose already-used tools. Treat that
-            # as an implicit finish when we already have outcomes; otherwise
-            # mark degraded so the UI can surface the stall.
             implicit_ok = bool(outcomes)
             if not implicit_ok:
                 planner_degraded = True
@@ -189,13 +252,24 @@ def run_agentic(
                     observation=observation,
                     decision="no new tools selected",
                     tool=TOOL_FINISH,
+                    headline=TOOL_HEADLINES[TOOL_FINISH],
                     status=(
                         AgentStatus.OK if implicit_ok else AgentStatus.PARTIAL
                     ),
-                    detail=(
-                        "finished after already-called tool proposals"
-                        if implicit_ok
-                        else "stopped after repeated already-called tools"
+                    detail=_finish_detail(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
+                        note=(
+                            "No unused tools remained."
+                            if implicit_ok
+                            else "Coordinator stalled on already-used tools."
+                        ),
+                    ),
+                    artifact=_finish_artifact(
+                        severity=severity,
+                        runbook=runbook,
+                        log_analysis=log_analysis,
                     ),
                 )
             )
@@ -215,8 +289,19 @@ def run_agentic(
                 observation=observation,
                 decision="max rounds reached",
                 tool=TOOL_FINISH,
+                headline=TOOL_HEADLINES[TOOL_FINISH],
                 status=AgentStatus.PARTIAL,
-                detail="forced finish after max_rounds",
+                detail=_finish_detail(
+                    severity=severity,
+                    runbook=runbook,
+                    log_analysis=log_analysis,
+                    note="Stopped at max coordinator rounds.",
+                ),
+                artifact=_finish_artifact(
+                    severity=severity,
+                    runbook=runbook,
+                    log_analysis=log_analysis,
+                ),
             )
         )
 
@@ -244,6 +329,63 @@ def run_agentic(
         planner_degraded=planner_degraded,
         planner_error="; ".join(dict.fromkeys(planner_errors)),
     )
+
+
+def _finish_detail(
+    *,
+    severity,
+    runbook,
+    log_analysis,
+    degraded: bool = False,
+    error: str = "",
+    note: str = "",
+) -> str:
+    parts: list[str] = []
+    if note:
+        parts.append(note)
+    if log_analysis is not None:
+        parts.append(
+            f"Cause: {log_analysis.likely_cause or 'unknown'}"
+        )
+    if severity is not None:
+        parts.append(
+            f"Severity {severity.level.value} (score {severity.score})"
+        )
+    if runbook is not None and runbook.recommendations:
+        top = runbook.recommendations[0]
+        parts.append(
+            f"Runbook: {top.title} ({round(top.confidence * 100)}%)"
+        )
+    elif runbook is not None:
+        parts.append("No runbook match")
+    if not parts:
+        parts.append("No agent findings collected yet.")
+    if degraded and error:
+        parts.append(f"Degraded: {error}")
+    return " · ".join(parts)
+
+
+def _finish_artifact(*, severity, runbook, log_analysis) -> dict[str, object]:
+    artifact: dict[str, object] = {"kind": "finish"}
+    if severity is not None:
+        artifact["severity"] = {
+            "level": severity.level.value,
+            "score": severity.score,
+            "rationale": severity.rationale,
+        }
+    if runbook is not None and runbook.recommendations:
+        top = runbook.recommendations[0]
+        artifact["runbook"] = {
+            "title": top.title,
+            "confidence": top.confidence,
+            "actions": [step.action for step in top.steps[:3]],
+        }
+    if log_analysis is not None:
+        artifact["logs"] = {
+            "likely_cause": log_analysis.likely_cause,
+            "summary": (log_analysis.summary or "")[:280],
+        }
+    return artifact
 
 
 def _merge_result(

@@ -121,11 +121,9 @@ def test_repeated_tools_finish_cleanly_when_outcomes_exist() -> None:
     assert not report.planner_degraded
     assert not report.partial
     assert report.log_analysis is not None
-    assert any("already called" in step.detail for step in report.agentic_steps)
-    assert any(
-        "finished after already-called tool proposals" in step.detail
-        for step in report.agentic_steps
-    )
+    assert any("already completed earlier" in step.detail for step in report.agentic_steps)
+    assert any(step.phase == "finish" for step in report.agentic_steps)
+    assert report.severity is not None or report.log_analysis is not None
 
 
 def test_cloudflare_planner_reads_response_field() -> None:

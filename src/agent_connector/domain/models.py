@@ -139,6 +139,8 @@ class AgenticStep(BaseModel):
     tool: str = ""
     status: AgentStatus = AgentStatus.OK
     detail: str = ""
+    headline: str = ""
+    artifact: dict[str, object] = Field(default_factory=dict)
     latency_ms: Optional[float] = None
 
 
