@@ -175,9 +175,13 @@ def run_agentic(
             break
 
         if not acted:
-            # Planner kept proposing already-used tools; stop the spin early.
-            planner_degraded = True
-            planner_errors.append("planner repeated already-called tools")
+            # Weak planners sometimes re-propose already-used tools. Treat that
+            # as an implicit finish when we already have outcomes; otherwise
+            # mark degraded so the UI can surface the stall.
+            implicit_ok = bool(outcomes)
+            if not implicit_ok:
+                planner_degraded = True
+                planner_errors.append("planner repeated already-called tools")
             record(
                 AgenticStep(
                     round=round_index,
@@ -185,12 +189,19 @@ def run_agentic(
                     observation=observation,
                     decision="no new tools selected",
                     tool=TOOL_FINISH,
-                    status=AgentStatus.PARTIAL,
-                    detail="stopped after repeated already-called tools",
+                    status=(
+                        AgentStatus.OK if implicit_ok else AgentStatus.PARTIAL
+                    ),
+                    detail=(
+                        "finished after already-called tool proposals"
+                        if implicit_ok
+                        else "stopped after repeated already-called tools"
+                    ),
                 )
             )
             finished = True
-            forced_finish = True
+            if not implicit_ok:
+                forced_finish = True
             break
 
     if not finished:

@@ -110,7 +110,7 @@ def test_openai_fallback_marks_degraded_mode() -> None:
     assert any(step.status == AgentStatus.PARTIAL for step in report.agentic_steps)
 
 
-def test_repeated_tools_force_partial_finish() -> None:
+def test_repeated_tools_finish_cleanly_when_outcomes_exist() -> None:
     class StickyPlanner:
         name = "sticky"
 
@@ -118,9 +118,14 @@ def test_repeated_tools_force_partial_finish() -> None:
             return PlanDecision(tools=(TOOL_ANALYZE_LOGS,), reason="again")
 
     report = run_agentic(_load_db_incident(), planner=StickyPlanner(), max_rounds=3)
-    assert report.planner_degraded
-    assert report.partial
+    assert not report.planner_degraded
+    assert not report.partial
+    assert report.log_analysis is not None
     assert any("already called" in step.detail for step in report.agentic_steps)
+    assert any(
+        "finished after already-called tool proposals" in step.detail
+        for step in report.agentic_steps
+    )
 
 
 def test_cloudflare_planner_reads_response_field() -> None:

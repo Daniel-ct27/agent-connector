@@ -23,8 +23,10 @@ _PLAN_PROMPT = (
     "ONLY a JSON object of the form "
     '{"tools":["analyze_logs"],"reason":"short reason"}. '
     "Allowed tools: analyze_logs, analyze_severity, recommend_runbook, finish. "
-    "Prefer analyze_logs first when ERROR/FATAL lines exist. Call finish when "
-    "enough evidence is collected. Do not invent tool names."
+    "Prefer analyze_logs first when ERROR/FATAL lines exist. Never re-select a "
+    "tool listed in already_called. After analyze_logs and analyze_severity, "
+    "prefer recommend_runbook once, then finish. Call finish when enough "
+    "evidence is collected or no unused tools remain. Do not invent tool names."
 )
 
 
