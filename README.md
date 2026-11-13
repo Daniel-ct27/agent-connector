@@ -40,13 +40,19 @@ python -m pip install -e ".[llm]"
 
 ## Demo panel
 
-Starts a local UI to manage agent processes, race gRPC vs HTTP, and view charts:
+Starts a local UI with two independent pages:
 
 ```bash
 agent-connector-demo
 ```
 
-Open [http://127.0.0.1:8090](http://127.0.0.1:8090).
+| Page | URL | Purpose |
+|---|---|---|
+| Hub | [http://127.0.0.1:8090/](http://127.0.0.1:8090/) | Choose a demo |
+| Incident Response | [http://127.0.0.1:8090/response](http://127.0.0.1:8090/response) | Agentic observe → decide → act |
+| Protocol Lab | [http://127.0.0.1:8090/lab](http://127.0.0.1:8090/lab) | gRPC vs HTTP races + Stage 7 charts |
+
+Each page keeps its own controls and run state.
 
 ## Agent processes
 
@@ -114,8 +120,8 @@ Agentic tools run **in-process** (no gRPC/HTTP agent servers required). If a liv
 planner fails, the run falls back to deterministic rules and marks
 `planner_degraded` / `agentic_mode=<provider>+fallback` (exit code `1`).
 
-In the demo panel, use **Run agentic response** for the step timeline. The
-timeline renders after the run completes.
+On the **Incident Response** page (`/response`), use **Run agentic response**
+for the live step timeline.
 
 ### Connect Cloudflare Workers AI locally
 
@@ -131,8 +137,8 @@ agent-connector --transport agentic --planner cloudflare --no-jsonl scenarios/fi
 
 `-MaskInput` requires PowerShell 7.2 or newer. A successful live fixture run
 exits `0` without planner degradation. Start `agent-connector-demo` from the
-same shell and choose **cloudflare Workers AI** in the planner selector to run
-it from the panel. The token stays in the backend process environment.
+same shell, open `/response`, and choose **cloudflare Workers AI** in the
+planner selector. The token stays in the backend process environment.
 
 ## Log Analysis mode
 
