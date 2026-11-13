@@ -95,21 +95,29 @@
       </section>
     </div>
 
+    <section class="helpdesk-solution reveal d3" id="helpdesk-solution">
+      <div class="helpdesk-kicker">Recommended for the on-call engineer</div>
+      <div class="helpdesk-title" id="helpdesk-title">Waiting for a remediation path…</div>
+      <ol class="helpdesk-actions" id="helpdesk-actions">
+        <li>Dispatch an incident to populate diagnosis, severity, and next actions.</li>
+      </ol>
+    </section>
+
     <section class="ops-cards reveal d3">
       <article class="ops-card" id="card-wrap-severity">
         <div class="ops-card-kicker">Severity</div>
         <div class="ops-card-value" id="card-severity-level">STANDING BY</div>
-        <div class="ops-card-body" id="card-severity">No severity score yet.</div>
+        <div class="ops-card-body" id="card-severity">Waiting for severity agent.</div>
       </article>
       <article class="ops-card" id="card-wrap-runbook">
         <div class="ops-card-kicker">Runbook</div>
         <div class="ops-card-value" id="card-runbook-title">STANDING BY</div>
-        <div class="ops-card-body" id="card-runbook">No remediation path yet.</div>
+        <div class="ops-card-body" id="card-runbook">Waiting for runbook agent.</div>
       </article>
       <article class="ops-card" id="card-wrap-logs">
         <div class="ops-card-kicker">Likely cause</div>
         <div class="ops-card-value" id="card-logs-cause">STANDING BY</div>
-        <div class="ops-card-body" id="card-logs">No forensics yet.</div>
+        <div class="ops-card-body" id="card-logs">Waiting for log forensics.</div>
       </article>
     </section>
 
@@ -189,6 +197,28 @@
       ["card-wrap-severity", "card-wrap-runbook", "card-wrap-logs"].forEach((id) => {
         document.getElementById(id).classList.remove("hot", "miss");
       });
+      document.getElementById("helpdesk-solution").classList.remove("ready");
+      document.getElementById("helpdesk-title").textContent =
+        "Waiting for a remediation path…";
+      document.getElementById("helpdesk-actions").innerHTML =
+        "<li>Dispatch an incident to populate diagnosis, severity, and next actions.</li>";
+    }
+
+    function setHelpdeskActions(title, actions, confidence) {
+      const conf =
+        confidence == null ? "" : ` · ${Math.round(confidence * 100)}% confidence`;
+      document.getElementById("helpdesk-title").textContent = `${title}${conf}`;
+      const list = document.getElementById("helpdesk-actions");
+      list.innerHTML = "";
+      const steps = actions && actions.length
+        ? actions
+        : ["Open the matched runbook and follow the on-call checklist."];
+      steps.forEach((action) => {
+        const li = document.createElement("li");
+        li.textContent = action;
+        list.appendChild(li);
+      });
+      document.getElementById("helpdesk-solution").classList.add("ready");
     }
 
     function setCard(kind, value, body) {
@@ -224,15 +254,25 @@
           document.getElementById("card-runbook-title").textContent = "NO MATCH";
           document.getElementById("card-runbook").textContent =
             "No remediation runbook matched this signature.";
+          document.getElementById("helpdesk-title").textContent =
+            "No remediation path matched";
+          document.getElementById("helpdesk-actions").innerHTML =
+            "<li>Escalate with the likely cause and severity while a runbook is authored.</li>";
+          document.getElementById("helpdesk-solution").classList.add("ready");
         } else {
           const conf = artifact.confidence == null
             ? ""
             : ` · ${Math.round(artifact.confidence * 100)}%`;
           document.getElementById("card-runbook-title").textContent =
             `${artifact.title || "Runbook"}${conf}`;
-          const actions = (artifact.actions || []).join(" → ");
+          const actions = artifact.actions || [];
           document.getElementById("card-runbook").textContent =
-            actions || "Matched runbook ready for engineer handoff.";
+            actions.join(" → ") || "Matched runbook ready for engineer handoff.";
+          setHelpdeskActions(
+            artifact.title || "Matched runbook",
+            actions,
+            artifact.confidence
+          );
         }
         document.getElementById("card-wrap-runbook").classList.add("hot");
       } else if (artifact.kind === "logs") {
@@ -346,14 +386,13 @@
       if (!report.severity) missing.push("severity");
       if (!report.runbook) missing.push("runbook");
       if (!report.log_analysis) missing.push("log forensics");
-      if (data.planner_degraded) {
+      if (missing.length) {
+        runMsg.textContent = `Partial package — missing ${missing.join(", ")}.`;
+      } else if (data.planner_degraded) {
         runMsg.textContent =
-          data.planner_error || "Response finished with planner degradation";
-      } else if (missing.length) {
-        runMsg.textContent =
-          `Partial package — missing ${missing.join(", ")}. Try deterministic planner for a full desk.`;
+          "Helpdesk package ready (planner needed desk completion).";
       } else {
-        runMsg.textContent = "Incident package ready for engineer handoff.";
+        runMsg.textContent = "Helpdesk package ready — follow recommended actions.";
       }
     }
 

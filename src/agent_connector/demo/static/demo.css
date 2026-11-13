@@ -798,6 +798,43 @@
   line-height: 1.45;
   color: rgba(215, 226, 207, 0.86);
 }
+.helpdesk-solution {
+  margin: 0.35rem 0 1rem;
+  border: 1px solid #243026;
+  border-radius: 18px;
+  background: #101511;
+  color: #d7e2cf;
+  padding: 1.05rem 1.15rem 1.15rem;
+  box-shadow: var(--shadow);
+}
+.helpdesk-solution.ready {
+  border-color: rgba(207, 239, 58, 0.45);
+}
+.helpdesk-kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin-bottom: 0.4rem;
+}
+.helpdesk-title {
+  font-family: Syne, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f2f7ec;
+  margin-bottom: 0.65rem;
+}
+.helpdesk-actions {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.45rem;
+  color: rgba(215, 226, 207, 0.9);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
 .ops-cards {
   display: grid;
   gap: 0.85rem;
