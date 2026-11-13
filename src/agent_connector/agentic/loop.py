@@ -182,8 +182,7 @@ def run_agentic(
             status=AgentStatus.OK,
             detail=(
                 f"Ingested {len(request.logs)} log lines across "
-                f"{len(services)} service(s); {error_like} ERROR/FATAL events. "
-                f"Incident {request.incident_id}."
+                f"{len(services)} service(s); {error_like} ERROR/FATAL events."
             ),
             artifact={
                 "kind": "observe",

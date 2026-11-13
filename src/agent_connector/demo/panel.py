@@ -88,7 +88,7 @@ def create_demo_app() -> FastAPI:
     def _html_page(name: str) -> HTMLResponse:
         page_path = STATIC_DIR / name
         if not page_path.is_file():
-            raise HTTPException(status_code=500, detail=f"demo UI missing: {name}")
+            raise HTTPException(status_code=500, detail="demo UI missing")
         return HTMLResponse(page_path.read_text(encoding="utf-8"))
 
     @app.get("/", response_class=HTMLResponse)
@@ -155,12 +155,12 @@ def create_demo_app() -> FastAPI:
     async def summary() -> dict:
         path = REPORT_DIR / "summary.csv"
         if not path.is_file():
-            return {"rows": [], "note": "report/summary.csv not found", "charts": {}}
+            return {"rows": [], "note": "no archived benchmark yet", "charts": {}}
         with path.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
         return {
             "rows": rows,
-            "source": "report/summary.csv",
+            "source": "archived benchmark",
             "charts": _chart_payloads(rows),
         }
 
@@ -214,7 +214,7 @@ def create_demo_app() -> FastAPI:
             if not fixture_path.is_file():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"fixture not found: {fixture}",
+                    detail="scenario not found",
                 )
             return IncidentRequest.model_validate(
                 json.loads(fixture_path.read_text(encoding="utf-8"))

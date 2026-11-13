@@ -69,9 +69,13 @@ def analyze_severity(request: IncidentRequest) -> SeverityResponse:
     )
     level = _level_for_score(score)
     evidence = extract_evidence(request.logs)
-    rationale = (
-        f"score={score} from error_like={error_count}, fatal={fatal_count}, "
-        f"services={len(affected_services)}, duration_s={duration_seconds:.1f}"
+    rationale = _human_rationale(
+        level=level,
+        score=score,
+        error_count=error_count,
+        fatal_count=fatal_count,
+        service_count=len(affected_services),
+        duration_seconds=duration_seconds,
     )
 
     return SeverityResponse(
@@ -81,6 +85,43 @@ def analyze_severity(request: IncidentRequest) -> SeverityResponse:
         rationale=rationale,
         status=AgentStatus.OK,
     )
+
+
+def _human_rationale(
+    *,
+    level: SeverityLevel,
+    score: int,
+    error_count: int,
+    fatal_count: int,
+    service_count: int,
+    duration_seconds: float,
+) -> str:
+    """Plain-English flag call for operators — not the raw scoring formula."""
+    bits: list[str] = []
+    if error_count == 0:
+        bits.append("no ERROR/FATAL events in the window")
+    elif error_count == 1:
+        bits.append("1 ERROR/FATAL event")
+    else:
+        bits.append(f"{error_count} ERROR/FATAL events")
+
+    if service_count <= 1:
+        bits.append("mostly one service")
+    else:
+        bits.append(f"across {service_count} services")
+
+    if duration_seconds >= 60:
+        bits.append(f"open for ~{duration_seconds / 60:.0f} min")
+    elif duration_seconds >= 1:
+        bits.append(f"spanning ~{duration_seconds:.0f}s")
+
+    if fatal_count == 1:
+        bits.append("including a FATAL")
+    elif fatal_count > 1:
+        bits.append(f"including {fatal_count} FATAL events")
+
+    joined = ", ".join(bits)
+    return f"{level.value} ({score}/100) — {joined}."
 
 
 def _compute_score(

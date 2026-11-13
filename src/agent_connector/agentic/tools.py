@@ -75,12 +75,11 @@ def execute_tool(name: str, request: IncidentRequest) -> ToolResult:
             for item in response.evidence[:3]
             if item.summary
         ]
-        detail = (
-            f"{response.level.value} · score {response.score}/100. "
-            f"{response.rationale or 'No rationale provided.'}"
+        detail = response.rationale or (
+            f"{response.level.value} flag · {response.score}/100."
         )
         if top_evidence:
-            detail += " Evidence: " + "; ".join(top_evidence)
+            detail += " Top signals: " + "; ".join(top_evidence)
         return ToolResult(
             tool=name,
             status=response.status,
