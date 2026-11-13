@@ -117,6 +117,23 @@ planner fails, the run falls back to deterministic rules and marks
 In the demo panel, use **Run agentic response** for the step timeline. The
 timeline renders after the run completes.
 
+### Connect Cloudflare Workers AI locally
+
+In the Cloudflare dashboard, open Workers AI → Use REST API and create a
+Workers AI API token. Copy the account ID from the same screen. Set both in
+the PowerShell session that will launch Agent Connector:
+
+```powershell
+$env:CLOUDFLARE_ACCOUNT_ID = Read-Host 'Cloudflare account ID'
+$env:CLOUDFLARE_API_TOKEN = Read-Host 'Workers AI API token' -MaskInput
+agent-connector --transport agentic --planner cloudflare --no-jsonl scenarios/fixtures/inc-db-001.json
+```
+
+`-MaskInput` requires PowerShell 7.2 or newer. A successful live fixture run
+exits `0` without planner degradation. Start `agent-connector-demo` from the
+same shell and choose **cloudflare Workers AI** in the planner selector to run
+it from the panel. The token stays in the backend process environment.
+
 ## Log Analysis mode
 
 Default summarizer is deterministic. For a live OpenAI call, set these **before** starting Log Analysis:
