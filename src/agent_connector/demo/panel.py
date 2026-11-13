@@ -99,6 +99,10 @@ def create_demo_app() -> FastAPI:
     async def response_page() -> HTMLResponse:
         return _html_page("response.html")
 
+    @app.get("/lab", response_class=HTMLResponse)
+    async def lab_page() -> HTMLResponse:
+        return _html_page("lab.html")
+
     @app.get("/api/servers")
     async def servers() -> dict:
         return {"servers": manager.status()}
