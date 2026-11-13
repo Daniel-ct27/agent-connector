@@ -6,47 +6,64 @@
   <title>Protocol Lab · Agent Connector</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="/static/demo.css" />
+  <link rel="stylesheet" href="/static/demo.css?v=race7" />
 </head>
-<body class="ops-page">
-  <div class="wrap">
+<body class="race-page race-night">
+  <div class="race-asphalt" aria-hidden="true"></div>
+  <div class="wrap race-wrap">
     <nav class="topnav">
       <div class="links">
-        <a href="/">Hub</a>
-        <a href="/response">Incident Response</a>
-        <a class="active" href="/lab">Protocol Lab</a>
+        <a href="/">Paddock</a>
+        <a href="/response">1 · Package</a>
+        <a class="active" href="/lab">2 · Delivery</a>
       </div>
     </nav>
 
-    <header class="ops-banner reveal">
+    <header class="race-hero reveal">
       <div>
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
-          Protocol race console. Same incident agents, side-by-side gRPC and
-          HTTP/JSON — wall time, findings, and Stage&nbsp;7 evidence for transport decisions.
+          Time gRPC vs HTTP delivering the same agent package to the on-call.
         </p>
       </div>
-      <div class="ops-meta">
-        <div><span>STACK</span><strong id="lab-stack">CHECKING</strong></div>
-        <div><span>LAST RACE</span><strong id="lab-last">—</strong></div>
-        <div><span>VERDICT</span><strong id="lab-verdict">—</strong></div>
+      <div class="race-tower">
+        <div class="start-lights" id="start-lights" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="race-tower-meta">
+          <div><span>GARAGE</span><strong id="lab-stack">CHECKING</strong></div>
+          <div><span>LAP</span><strong id="lab-last">—</strong></div>
+          <div><span>P1</span><strong id="lab-verdict">—</strong></div>
+        </div>
       </div>
     </header>
 
-    <div class="ops-layout">
-      <section class="panel ops-controls reveal d2">
-        <h3>Agent fabric</h3>
-        <div class="controls">
-          <button class="grpc" id="start-grpc" type="button">Bring up gRPC</button>
-          <button class="http" id="start-http" type="button">Bring up HTTP</button>
-          <button class="danger" id="stop-all" type="button">Tear down</button>
+    <section class="handoff-bar from-control" id="lab-handoff" hidden>
+      <div>
+        <div class="handoff-kicker">Carried from step 1</div>
+        <div class="handoff-title" id="lab-handoff-title">Linked package</div>
+        <p class="handoff-detail" id="lab-handoff-detail">
+          Same workload as Race Control. Arm both sides, then drop the flag.
+        </p>
+      </div>
+      <a class="cta handoff-cta quiet-cta" href="/response">← Back to package</a>
+    </section>
+
+    <div class="race-layout">
+      <aside class="race-pit reveal d2">
+        <div class="race-section-label">Pit wall</div>
+        <div class="controls race-pit-controls">
+          <button class="grpc" id="start-grpc" type="button" data-focus="grpc">Arm gRPC</button>
+          <button class="http" id="start-http" type="button" data-focus="http">Arm HTTP</button>
+          <button class="danger" id="stop-all" type="button">Kill switch</button>
         </div>
-        <div class="server-list" id="server-list"></div>
+        <p class="pit-hint" id="pit-hint">Hover Arm · click Out/Box on a bay · Drop the flag for live telemetry</p>
+        <div class="pit-grid" id="server-list"></div>
         <p class="msg" id="server-msg"></p>
 
-        <h3 style="margin-top:1.1rem">Workload</h3>
+        <div class="race-section-label" style="margin-top:1.1rem">Race setup</div>
         <div class="field-grid">
           <label>
             Source
@@ -87,85 +104,150 @@
           </label>
         </div>
         <div class="controls">
-          <button class="live" id="race" type="button">Race unary transports</button>
-          <button class="primary" id="stream" type="button">Run stream path</button>
+          <button class="live" id="race" type="button">Drop the flag</button>
+          <button class="primary" id="stream" type="button">Stream lap</button>
         </div>
         <p class="msg" id="run-msg"></p>
-      </section>
+      </aside>
 
-      <section class="lab-console reveal d3">
-        <div class="ops-console-head">
-          <h3>Live race board</h3>
-          <span class="status-chip" id="lab-status">idle</span>
+      <section class="race-board reveal d3">
+        <div class="race-board-head">
+          <div>
+            <div class="race-section-label light">Timing tower</div>
+            <h3>What just happened</h3>
+          </div>
+          <span class="status-chip" id="lab-status">grid</span>
         </div>
+
+        <article class="race-story" id="race-story">
+          <div class="race-story-headline" id="race-story-headline">
+            Waiting on grid
+          </div>
+          <p class="race-story-detail" id="race-story-detail">
+            Arm both garages, set the load, then drop the flag.
+          </p>
+        </article>
+
+        <div class="race-track" id="race-track" aria-hidden="true">
+          <div class="race-track-lane grpc-track">
+            <span class="car grpc-car" id="car-grpc"></span>
+          </div>
+          <div class="race-track-lane http-track">
+            <span class="car http-car" id="car-http"></span>
+          </div>
+          <div class="chequer finish-line"></div>
+        </div>
+
+        <div class="race-telemetry idle" id="race-telemetry">
+          <div class="race-telemetry-head">
+            <span>TELEMETRY</span>
+            <span id="race-clock">idle</span>
+          </div>
+          <div class="race-telemetry-feed" id="race-telemetry-feed">
+            <div class="race-telemetry-line">Grid quiet — arm garages, then drop the flag.</div>
+          </div>
+        </div>
+
         <div class="lab-lanes">
-          <article class="lab-lane grpc hot-ready" id="lane-grpc">
-            <div class="lab-lane-kicker">gRPC unary</div>
+          <article class="lab-lane grpc" id="lane-grpc" tabindex="0">
+            <div class="lab-lane-kicker">P? · gRPC unary</div>
             <div class="lab-lane-ms" id="grpc-ms">—<span>ms</span></div>
-            <div class="lab-lane-body" id="grpc-findings">Waiting for a race.</div>
+            <div class="lab-lane-caption">Time until the full agent package returned</div>
+            <div class="lab-lane-body" id="grpc-findings">Waiting on grid.</div>
           </article>
-          <article class="lab-lane http hot-ready" id="lane-http">
-            <div class="lab-lane-kicker">HTTP / JSON unary</div>
+          <article class="lab-lane http" id="lane-http" tabindex="0">
+            <div class="lab-lane-kicker">P? · HTTP / JSON</div>
             <div class="lab-lane-ms" id="http-ms">—<span>ms</span></div>
-            <div class="lab-lane-body" id="http-findings">Same workload, JSON over HTTP.</div>
+            <div class="lab-lane-caption">Same job over JSON/HTTP</div>
+            <div class="lab-lane-body" id="http-findings">Waiting on grid.</div>
           </article>
         </div>
-        <div class="lab-verdict-bar" id="ratio">Arm both stacks, set load, then race.</div>
+        <div class="lab-verdict-bar" id="ratio">Arm both garages → set load → drop the flag.</div>
         <div class="lab-chart-block">
           <div class="lab-chart-head">
-            <h4>Wall-time trace</h4>
+            <h4>Your laps this session</h4>
             <div class="controls" style="margin:0">
               <button class="quiet" id="clear-live" type="button">Clear</button>
-              <button class="quiet" id="reload-evidence" type="button">Reload evidence</button>
             </div>
           </div>
           <p class="msg" id="live-empty" style="margin:0 0 0.4rem;color:rgba(215,226,207,0.55)">
-            Each race appends a grouped bar — gRPC vs HTTP, optional stream.
+            Empty until you race. Each “Drop the flag” adds a bar — shorter =
+            faster handoff.
           </p>
+          <p class="chart-takeaway" id="live-takeaway" style="display:none"></p>
           <div class="chart-wrap" id="live-wrap" style="display:none"><canvas id="chart-live"></canvas></div>
         </div>
       </section>
     </div>
 
-    <section class="evidence panel lab-evidence">
-      <h3>Scored evidence</h3>
+    <section class="panel lab-evidence" id="live-evidence">
+      <h3>Session charts</h3>
       <p class="sub">
-        Stage&nbsp;7 benchmark export from <code>report/summary.csv</code>.
-        Reloads after each lab run so fresh numbers land without a refresh.
+        Empty until you race. Each lap plots how long the package took on each wire.
       </p>
       <div class="chart-grid">
         <div class="chart-card" style="margin-top:0">
-          <h4>Median latency vs payload</h4>
-          <div class="chart-wrap"><canvas id="chart-latency"></canvas></div>
+          <h4>Wall time vs log volume</h4>
+          <p class="chart-explain">
+            Concurrency 1 laps. Y-axis = ms per package. Lower is better.
+          </p>
+          <p class="chart-takeaway" id="takeaway-latency">No latency laps yet.</p>
+          <div class="chart-wrap chart-wrap-empty" id="wrap-latency">
+            <canvas id="chart-latency"></canvas>
+            <p class="chart-placeholder" id="ph-latency">Race with 1 client to plot this.</p>
+          </div>
         </div>
         <div class="chart-card" style="margin-top:0">
-          <h4>Throughput vs concurrency</h4>
-          <div class="chart-wrap"><canvas id="chart-throughput"></canvas></div>
+          <h4>Packages / sec under load</h4>
+          <p class="chart-explain">
+            From your laps. Y-axis ≈ clients ÷ wall seconds. Higher is better.
+          </p>
+          <p class="chart-takeaway" id="takeaway-throughput">No load laps yet.</p>
+          <div class="chart-wrap chart-wrap-empty" id="wrap-throughput">
+            <canvas id="chart-throughput"></canvas>
+            <p class="chart-placeholder" id="ph-throughput">Race at any concurrency to plot this.</p>
+          </div>
         </div>
         <div class="chart-card" style="margin-top:0">
-          <h4>Stream time to first event</h4>
-          <div class="chart-wrap"><canvas id="chart-ttfe"></canvas></div>
+          <h4>Stream package wall time</h4>
+          <p class="chart-explain">
+            From stream laps. Y-axis = wall ms. Lower is better.
+          </p>
+          <p class="chart-takeaway" id="takeaway-ttfe">No stream laps yet.</p>
+          <div class="chart-wrap chart-wrap-empty" id="wrap-ttfe">
+            <canvas id="chart-ttfe"></canvas>
+            <p class="chart-placeholder" id="ph-ttfe">Run a stream lap to plot this.</p>
+          </div>
         </div>
+      </div>
+      <div class="evidence-table-head">
+        <h4>Lap log</h4>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Transport</th><th>Payload</th><th>Median ms</th>
-            <th>p95 ms</th><th>req/s</th><th>Success</th>
+            <th>Lap</th>
+            <th>Setup</th>
+            <th>gRPC</th>
+            <th>HTTP</th>
+            <th>In English</th>
           </tr>
         </thead>
-        <tbody id="summary-body"></tbody>
+        <tbody id="lap-body">
+          <tr class="empty-row" id="lap-empty-row">
+            <td colspan="5">No laps yet — drop the flag or run a stream lap.</td>
+          </tr>
+        </tbody>
       </table>
-      <p class="msg" id="summary-msg"></p>
     </section>
 
     <details class="ops-raw">
-      <summary>Raw response payload</summary>
+      <summary>Raw timing payload</summary>
       <pre id="report">{}</pre>
     </details>
   </div>
 
-  <script src="/static/common.js"></script>
+  <script src="/static/common.js?v=race7"></script>
   <script>
     const serverList = document.getElementById("server-list");
     const serverMsg = document.getElementById("server-msg");
@@ -179,28 +261,177 @@
     const payloadCustom = document.getElementById("payload-custom");
     const concurrencyEl = document.getElementById("concurrency");
     const reportEl = document.getElementById("report");
-    const summaryBody = document.getElementById("summary-body");
-    const summaryMsg = document.getElementById("summary-msg");
+    const lapBody = document.getElementById("lap-body");
     const labStatus = document.getElementById("lab-status");
+    const startLights = document.getElementById("start-lights");
 
-    const { api, findings, syncSource, loadFixtureOptions, chartColors } = DemoCommon;
+    const {
+      api,
+      findings,
+      raceStory,
+      syncSource,
+      loadFixtureOptions,
+      chartColors,
+      loadHandoff,
+      labHrefFromHandoff,
+    } = DemoCommon;
 
     let charts = { latency: null, throughput: null, ttfe: null };
     let liveChart = null;
     let liveRun = 0;
+    // Latest point per axis key, filled only by this session's runs.
+    const session = {
+      latency: {}, // payload -> { grpc, http }
+      throughput: {}, // concurrency -> { grpc, http }
+      stream: {}, // payload -> ms
+    };
 
     function setLabStatus(text, kind) {
       labStatus.textContent = text;
       labStatus.className = "status-chip" + (kind ? " " + kind : "");
     }
 
+    function setLights(mode) {
+      startLights.className = "start-lights" + (mode ? " " + mode : "");
+    }
+
     function updateStackMeta(servers) {
       const up = (servers || []).filter((s) => s.running).length;
       const total = (servers || []).length || 6;
       const el = document.getElementById("lab-stack");
-      if (up === 0) el.textContent = "DOWN";
-      else if (up === total) el.textContent = `ONLINE ${up}/${total}`;
-      else el.textContent = `PARTIAL ${up}/${total}`;
+      if (up === 0) {
+        el.textContent = "CLOSED";
+        setLights("");
+      } else if (up === total) {
+        el.textContent = `OPEN ${up}/${total}`;
+        setLights("armed");
+      } else {
+        el.textContent = `WARMUP ${up}/${total}`;
+        setLights("warmup");
+      }
+    }
+
+    function animateCars(grpcMs, httpMs) {
+      const max = Math.max(grpcMs || 1, httpMs || 1);
+      const grpcPct = grpcMs == null ? 8 : Math.max(12, 92 - (grpcMs / max) * 70);
+      const httpPct = httpMs == null ? 8 : Math.max(12, 92 - (httpMs / max) * 70);
+      const grpcCar = document.getElementById("car-grpc");
+      const httpCar = document.getElementById("car-http");
+      grpcCar.style.setProperty("--pos", grpcPct + "%");
+      httpCar.style.setProperty("--pos", httpPct + "%");
+      grpcCar.classList.add("racing");
+      httpCar.classList.add("racing");
+    }
+
+    const TELEMETRY_LINES = [
+      "intake · hashing log window",
+      "severity · scanning ERROR/FATAL density",
+      "logs · ranking service patterns",
+      "runbook · matching remediation signature",
+      "wire · protobuf frame vs JSON body",
+      "agent · package assembly in flight",
+      "pit · waiting on slower transport",
+      "tower · delta still open",
+    ];
+    let raceFx = { timer: null, clock: null, started: 0 };
+
+    function pushTelemetry(text) {
+      const feed = document.getElementById("race-telemetry-feed");
+      const row = document.createElement("div");
+      row.className = "race-telemetry-line";
+      row.textContent = text;
+      feed.prepend(row);
+      while (feed.children.length > 8) feed.removeChild(feed.lastChild);
+    }
+
+    function startRaceFx({ stream = false } = {}) {
+      stopRaceFx();
+      const board = document.querySelector(".race-board");
+      const track = document.getElementById("race-track");
+      const tel = document.getElementById("race-telemetry");
+      board.classList.add("live");
+      track.classList.add("hot");
+      tel.classList.remove("idle");
+      tel.classList.add("hot");
+      document.getElementById("race-telemetry-feed").innerHTML = "";
+      document.getElementById("lane-grpc").classList.add("racing");
+      document.getElementById("lane-http").classList.toggle("racing", !stream);
+      document.getElementById("grpc-ms").innerHTML = `…<span>ms</span>`;
+      if (!stream) document.getElementById("http-ms").innerHTML = `…<span>ms</span>`;
+      document.getElementById("car-grpc").style.setProperty("--pos", "12%");
+      document.getElementById("car-http").style.setProperty("--pos", stream ? "8%" : "10%");
+      document.getElementById("car-grpc").classList.add("racing");
+      document.getElementById("car-http").classList.toggle("racing", !stream);
+
+      raceFx.started = performance.now();
+      let tick = 0;
+      raceFx.clock = setInterval(() => {
+        const sec = (performance.now() - raceFx.started) / 1000;
+        document.getElementById("race-clock").textContent = `${sec.toFixed(2)}s`;
+        const creep = Math.min(70, 12 + sec * (stream ? 18 : 14));
+        document.getElementById("car-grpc").style.setProperty("--pos", creep + "%");
+        if (!stream) {
+          document.getElementById("car-http").style.setProperty(
+            "--pos",
+            Math.min(66, 10 + sec * 11) + "%"
+          );
+        }
+        if (tick % 2 === 0) {
+          pushTelemetry(
+            TELEMETRY_LINES[tick % TELEMETRY_LINES.length] +
+              (stream ? " · stream" : " · unary")
+          );
+        }
+        tick += 1;
+      }, 280);
+    }
+
+    function stopRaceFx() {
+      if (raceFx.clock) clearInterval(raceFx.clock);
+      raceFx.clock = null;
+      document.querySelector(".race-board")?.classList.remove("live");
+      document.getElementById("race-track")?.classList.remove("hot");
+      document.getElementById("lane-grpc")?.classList.remove("racing");
+      document.getElementById("lane-http")?.classList.remove("racing");
+      const tel = document.getElementById("race-telemetry");
+      tel?.classList.remove("hot");
+      tel?.classList.add("idle");
+    }
+
+    function wirePitFocus() {
+      document.querySelectorAll("[data-focus]").forEach((btn) => {
+        const family = btn.getAttribute("data-focus");
+        btn.addEventListener("pointerenter", () => {
+          serverList.classList.add("focusing");
+          serverList.querySelectorAll(".pit-bay").forEach((bay) => {
+            bay.classList.toggle("dim", bay.dataset.family !== family);
+            bay.classList.toggle("focus", bay.dataset.family === family);
+          });
+        });
+        btn.addEventListener("pointerleave", () => {
+          serverList.classList.remove("focusing");
+          serverList.querySelectorAll(".pit-bay").forEach((bay) => {
+            bay.classList.remove("dim", "focus");
+          });
+        });
+      });
+    }
+
+    function flashButton(btn) {
+      btn.classList.add("hit");
+      setTimeout(() => btn.classList.remove("hit"), 220);
+    }
+
+    function countUp(el, target, suffixHtml = "<span>ms</span>") {
+      const start = performance.now();
+      const dur = 520;
+      function frame(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        el.innerHTML = `${Math.round(target * eased)}${suffixHtml}`;
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
     }
 
     function workloadBody(extra = {}) {
@@ -219,41 +450,65 @@
     }
 
     function renderServers(servers) {
+      const prev = new Set(
+        [...serverList.querySelectorAll(".pit-bay.live")].map((el) => el.dataset.key)
+      );
       serverList.innerHTML = "";
       updateStackMeta(servers);
-      for (const s of servers) {
-        const row = document.createElement("div");
-        row.className = "server";
-        row.innerHTML = `
-          <div class="meta"><strong>${s.label}</strong><small>:${s.port}</small></div>
-          <span class="pill ${s.running ? "on" : "off"}">${s.running ? "live" : "down"}</span>
-          <div class="mini"></div>`;
-        const mini = row.querySelector(".mini");
+      (servers || []).forEach((s, index) => {
+        const bay = document.createElement("div");
+        const justLive = s.running && !prev.has(s.key);
+        const family = /http/i.test(s.label) ? "http" : "grpc";
+        bay.className = "pit-bay" + (s.running ? " live" : "") + (justLive ? " just-live" : "");
+        bay.dataset.key = s.key;
+        bay.dataset.family = family;
+        const num = String(index + 1).padStart(2, "0");
+        bay.innerHTML = `
+          <div class="pit-bay-num">${num}</div>
+          <div class="pit-bay-body">
+            <strong>${s.label}</strong>
+            <small>${family.toUpperCase()} BAY</small>
+          </div>
+          <div class="pit-bay-state">${s.running ? "LIVE" : "PIT"}</div>
+          <div class="pit-bay-actions"></div>`;
+        bay.onclick = (ev) => {
+          if (ev.target.closest("button")) return;
+          serverList.querySelectorAll(".pit-bay").forEach((el) => el.classList.remove("selected"));
+          bay.classList.add("selected");
+          document.getElementById("pit-hint").textContent =
+            `${s.label} selected — Out to release, Box to pull in`;
+        };
+        const actions = bay.querySelector(".pit-bay-actions");
         const start = document.createElement("button");
         start.type = "button";
-        start.textContent = "Start";
+        start.textContent = "Out";
         start.onclick = async () => {
-          serverMsg.textContent = `Starting ${s.label}…`;
+          flashButton(start);
+          start.disabled = true;
+          bay.classList.add("busy");
+          serverMsg.textContent = `Releasing ${s.label}…`;
           try {
             await api(`/api/servers/${s.key}/start`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `${s.label} online`;
+            serverMsg.textContent = `${s.label} on track`;
             await refreshServers();
-          } catch (err) { serverMsg.textContent = err.message; }
+          } catch (err) { serverMsg.textContent = err.message; start.disabled = false; bay.classList.remove("busy"); }
         };
         const stop = document.createElement("button");
         stop.type = "button";
         stop.className = "quiet";
-        stop.textContent = "Stop";
+        stop.textContent = "Box";
         stop.onclick = async () => {
+          flashButton(stop);
+          bay.classList.add("busy");
           try {
             await api(`/api/servers/${s.key}/stop`, { method: "POST", body: "{}" });
-            serverMsg.textContent = `${s.label} down`;
+            serverMsg.textContent = `${s.label} boxed`;
             await refreshServers();
-          } catch (err) { serverMsg.textContent = err.message; }
+          } catch (err) { serverMsg.textContent = err.message; bay.classList.remove("busy"); }
         };
-        mini.append(start, stop);
-        serverList.appendChild(row);
-      }
+        actions.append(start, stop);
+        serverList.appendChild(bay);
+      });
     }
 
     async function refreshServers() {
@@ -327,7 +582,7 @@
           skipNull: true,
           interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: { position: "bottom", labels: { boxWidth: 12 } },
+            legend: { position: "bottom", labels: { boxWidth: 12, color: "#d7e2cf" } },
             tooltip: {
               callbacks: {
                 label: (ctx) =>
@@ -340,11 +595,11 @@
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "IBM Plex Mono", size: 11 } },
+              ticks: { color: "rgba(215,226,207,0.7)", font: { family: "IBM Plex Mono", size: 11 } },
             },
             y: {
               beginAtZero: true,
-              title: { display: true, text: "wall ms" },
+              title: { display: true, text: "wall ms", color: "rgba(215,226,207,0.7)" },
               grid: { color: "rgba(215,226,207,0.08)" },
               ticks: {
                 color: "rgba(215,226,207,0.7)",
@@ -372,6 +627,176 @@
       chart.update();
     }
 
+    function packagesPerSec(wallMs, concurrency) {
+      if (!wallMs || wallMs <= 0) return null;
+      return concurrency / (wallMs / 1000);
+    }
+
+    function setChartVisible(key, on) {
+      const wrap = document.getElementById(`wrap-${key}`);
+      const ph = document.getElementById(`ph-${key}`);
+      if (!wrap || !ph) return;
+      wrap.classList.toggle("chart-wrap-empty", !on);
+      ph.style.display = on ? "none" : "block";
+    }
+
+    function rebuildSessionCharts() {
+      const latKeys = Object.keys(session.latency).map(Number).sort((a, b) => a - b);
+      if (latKeys.length) {
+        setChartVisible("latency", true);
+        charts.latency?.destroy?.();
+        charts.latency = lineChart(
+          "chart-latency",
+          latKeys,
+          [
+            {
+              label: "gRPC (lower = faster)",
+              data: latKeys.map((k) => session.latency[k].grpc),
+              borderColor: chartColors.grpc,
+              backgroundColor: "rgba(11,110,79,0.12)",
+              tension: 0.25,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+            },
+            {
+              label: "HTTP (lower = faster)",
+              data: latKeys.map((k) => session.latency[k].http),
+              borderColor: chartColors.http,
+              backgroundColor: "rgba(180,83,9,0.10)",
+              tension: 0.25,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              borderDash: [4, 3],
+            },
+          ],
+          "log lines in the incident"
+        );
+        const last = latKeys[latKeys.length - 1];
+        const g = session.latency[last].grpc;
+        const h = session.latency[last].http;
+        document.getElementById("takeaway-latency").innerHTML =
+          g > 0 && DemoCommon.isDeadHeat(g, h)
+            ? `Latest at ${last.toLocaleString()} logs: dead heat (${g.toFixed(0)}&nbsp;ms each).`
+            : g > 0
+              ? `Latest at ${last.toLocaleString()} logs: HTTP ~${(h / g).toFixed(1)}× gRPC (${h.toFixed(0)}&nbsp;ms vs ${g.toFixed(0)}&nbsp;ms).`
+              : "Latency points recorded.";
+      }
+
+      const thrKeys = Object.keys(session.throughput).map(Number).sort((a, b) => a - b);
+      if (thrKeys.length) {
+        setChartVisible("throughput", true);
+        charts.throughput?.destroy?.();
+        charts.throughput = lineChart(
+          "chart-throughput",
+          thrKeys,
+          [
+            {
+              label: "gRPC packages/sec",
+              data: thrKeys.map((k) => session.throughput[k].grpc),
+              borderColor: chartColors.grpc,
+              backgroundColor: "rgba(11,110,79,0.12)",
+              tension: 0.25,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+            },
+            {
+              label: "HTTP packages/sec",
+              data: thrKeys.map((k) => session.throughput[k].http),
+              borderColor: chartColors.http,
+              backgroundColor: "rgba(180,83,9,0.10)",
+              tension: 0.25,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              borderDash: [4, 3],
+            },
+          ],
+          "parallel clients"
+        );
+        const last = thrKeys[thrKeys.length - 1];
+        const g = session.throughput[last].grpc;
+        const h = session.throughput[last].http;
+        document.getElementById("takeaway-throughput").innerHTML =
+          DemoCommon.isDeadHeat(g, h, 0.05)
+            ? `At x${last}: dead heat (~${g.toFixed(1)} pkg/s each).`
+            : `At x${last}: gRPC ~${g.toFixed(1)} pkg/s vs HTTP ~${h.toFixed(1)} pkg/s.`;
+      }
+
+      const stKeys = Object.keys(session.stream).map(Number).sort((a, b) => a - b);
+      if (stKeys.length) {
+        setChartVisible("ttfe", true);
+        charts.ttfe?.destroy?.();
+        charts.ttfe = lineChart(
+          "chart-ttfe",
+          stKeys,
+          [
+            {
+              label: "Stream package (ms, lower better)",
+              data: stKeys.map((k) => session.stream[k]),
+              borderColor: chartColors.ink,
+              backgroundColor: "rgba(207,239,58,0.35)",
+              tension: 0.25,
+              pointRadius: 4,
+            },
+          ],
+          "log lines in the stream"
+        );
+        const last = stKeys[stKeys.length - 1];
+        document.getElementById("takeaway-ttfe").innerHTML =
+          `Latest stream package at ${last.toLocaleString()} logs: ${session.stream[last].toFixed(0)}&nbsp;ms.`;
+      }
+    }
+
+    function appendLapRow({ label, setup, grpc, http, english }) {
+      const empty = document.getElementById("lap-empty-row");
+      if (empty) empty.remove();
+      const tr = document.createElement("tr");
+      tr.className = "fresh";
+      tr.innerHTML = `
+        <td>${label}</td>
+        <td>${setup}</td>
+        <td>${grpc == null ? "—" : `${Number(grpc).toFixed(0)} ms`}</td>
+        <td>${http == null ? "—" : `${Number(http).toFixed(0)} ms`}</td>
+        <td>${english}</td>`;
+      lapBody.prepend(tr);
+      setTimeout(() => tr.classList.remove("fresh"), 600);
+    }
+
+    function recordCompare(data) {
+      const payload = data.log_count;
+      const conc = data.concurrency;
+      const grpc = data.grpc.wall_latency_ms;
+      const http = data.http.wall_latency_ms;
+      if (conc === 1) {
+        session.latency[payload] = { grpc, http };
+      }
+      session.throughput[conc] = {
+        grpc: packagesPerSec(grpc, conc),
+        http: packagesPerSec(http, conc),
+      };
+      rebuildSessionCharts();
+    }
+
+    function recordStream(data) {
+      session.stream[data.payload_size] = data.latency_ms;
+      rebuildSessionCharts();
+    }
+
+    function clearSessionEvidence() {
+      session.latency = {};
+      session.throughput = {};
+      session.stream = {};
+      ["latency", "throughput", "ttfe"].forEach((key) => {
+        charts[key]?.destroy?.();
+        charts[key] = null;
+        setChartVisible(key, false);
+      });
+      document.getElementById("takeaway-latency").textContent = "No latency laps yet.";
+      document.getElementById("takeaway-throughput").textContent = "No load laps yet.";
+      document.getElementById("takeaway-ttfe").textContent = "No stream laps yet.";
+      lapBody.innerHTML =
+        `<tr class="empty-row" id="lap-empty-row"><td colspan="5">No laps yet — drop the flag or run a stream lap.</td></tr>`;
+    }
+
     function clearLiveChart() {
       liveRun = 0;
       if (liveChart) {
@@ -380,155 +805,112 @@
       }
       document.getElementById("live-wrap").style.display = "none";
       document.getElementById("live-empty").style.display = "block";
+      document.getElementById("live-takeaway").style.display = "none";
+      document.getElementById("car-grpc").style.setProperty("--pos", "8%");
+      document.getElementById("car-http").style.setProperty("--pos", "8%");
+      document.getElementById("race-story-headline").textContent = "Waiting on grid";
+      document.getElementById("race-story-detail").textContent =
+        "Arm both garages, set the load, then drop the flag.";
+      document.getElementById("race-story").classList.remove("ready");
+      clearSessionEvidence();
     }
 
-    async function loadSummary() {
-      const data = await api("/api/summary");
-      summaryBody.innerHTML = "";
-      if (!data.rows?.length) {
-        summaryMsg.textContent = data.note || "No summary.csv available yet";
-        return;
-      }
-      summaryMsg.textContent = `Loaded from ${data.source}`;
-      const rows = data.rows.filter(
-        (r) => r.concurrency === "1" && (r.transport === "grpc" || r.transport === "http")
-      );
-      for (const r of rows) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.transport}</td>
-          <td>${r.payload_size}</td>
-          <td>${Number(r.median_latency_ms).toFixed(1)}</td>
-          <td>${Number(r.p95_latency_ms).toFixed(1)}</td>
-          <td>${Number(r.throughput_rps).toFixed(2)}</td>
-          <td>${r.success_rate}</td>`;
-        summaryBody.appendChild(tr);
-      }
-
-      const c = data.charts || {};
-      ["latency", "throughput", "ttfe"].forEach((key) => {
-        charts[key]?.destroy?.();
-        charts[key] = null;
-      });
-      charts.latency = lineChart(
-        "chart-latency",
-        c.latency?.labels || [],
-        [
-          {
-            label: "gRPC",
-            data: c.latency?.grpc || [],
-            borderColor: chartColors.grpc,
-            backgroundColor: "rgba(11,110,79,0.12)",
-            tension: 0.25,
-            pointRadius: 4,
-          },
-          {
-            label: "HTTP",
-            data: c.latency?.http || [],
-            borderColor: chartColors.http,
-            backgroundColor: "rgba(180,83,9,0.10)",
-            tension: 0.25,
-            pointRadius: 4,
-          },
-        ],
-        "payload (log lines)"
-      );
-      charts.throughput = lineChart(
-        "chart-throughput",
-        c.throughput?.labels || [],
-        [
-          {
-            label: "gRPC",
-            data: c.throughput?.grpc || [],
-            borderColor: chartColors.grpc,
-            backgroundColor: "rgba(11,110,79,0.12)",
-            tension: 0.25,
-            pointRadius: 4,
-          },
-          {
-            label: "HTTP",
-            data: c.throughput?.http || [],
-            borderColor: chartColors.http,
-            backgroundColor: "rgba(180,83,9,0.10)",
-            tension: 0.25,
-            pointRadius: 4,
-          },
-        ],
-        "concurrency (payload 1000)"
-      );
-      charts.ttfe = lineChart(
-        "chart-ttfe",
-        c.ttfe?.labels || [],
-        [
-          {
-            label: "TTFE",
-            data: c.ttfe?.values || [],
-            borderColor: chartColors.ink,
-            backgroundColor: "rgba(207,239,58,0.35)",
-            tension: 0.25,
-            pointRadius: 4,
-          },
-        ],
-        "payload (log lines)"
-      );
+    function paintRaceStory(story) {
+      document.getElementById("race-story-headline").textContent = story.headline;
+      document.getElementById("race-story-detail").innerHTML = story.detail;
+      document.getElementById("race-story").classList.add("ready");
     }
 
-    async function afterRun() {
-      try { await loadSummary(); } catch (_) { /* keep prior */ }
+    function englishGap(grpcMs, httpMs, payload, concurrency) {
+      if (grpcMs == null || httpMs == null || grpcMs <= 0) return "—";
+      const setup =
+        concurrency && concurrency !== "1"
+          ? `${Number(payload).toLocaleString()} logs · x${concurrency}`
+          : `${Number(payload).toLocaleString()} log lines`;
+      if (DemoCommon.isDeadHeat(grpcMs, httpMs)) {
+        return `Dead heat (~${Number(grpcMs).toFixed(0)} ms each) on ${setup}.`;
+      }
+      const ratio = httpMs / grpcMs;
+      if (grpcMs < httpMs) {
+        return `HTTP ~${ratio.toFixed(1)}× slower for the same package (${setup}).`;
+      }
+      return `HTTP ahead (~${(grpcMs / httpMs).toFixed(1)}×) on ${setup}.`;
     }
 
     sourceEl.onchange = () =>
       syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     document.getElementById("start-grpc").onclick = async () => {
-      serverMsg.textContent = "Bringing up gRPC fabric…";
+      const btn = document.getElementById("start-grpc");
+      flashButton(btn);
+      btn.disabled = true;
+      serverMsg.textContent = "Arming gRPC garage…";
       try {
         await api("/api/servers/start-grpc", { method: "POST", body: "{}" });
-        serverMsg.textContent = "gRPC online on 50051–50053";
+        serverMsg.textContent = "gRPC garage on track";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
+      finally { btn.disabled = false; }
     };
     document.getElementById("start-http").onclick = async () => {
-      serverMsg.textContent = "Bringing up HTTP fabric…";
+      const btn = document.getElementById("start-http");
+      flashButton(btn);
+      btn.disabled = true;
+      serverMsg.textContent = "Arming HTTP garage…";
       try {
         await api("/api/servers/start-http", { method: "POST", body: "{}" });
-        serverMsg.textContent = "HTTP online on 8001–8003";
+        serverMsg.textContent = "HTTP garage on track";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
+      finally { btn.disabled = false; }
     };
     document.getElementById("stop-all").onclick = async () => {
+      flashButton(document.getElementById("stop-all"));
       try {
         await api("/api/servers/stop-all", { method: "POST", body: "{}" });
-        serverMsg.textContent = "All managed agents down";
+        serverMsg.textContent = "All cars boxed";
         await refreshServers();
       } catch (err) { serverMsg.textContent = err.message; }
     };
 
     document.getElementById("clear-live").onclick = () => {
       clearLiveChart();
-      runMsg.textContent = "Wall-time trace cleared";
+      stopRaceFx();
+      document.getElementById("race-clock").textContent = "idle";
+      document.getElementById("race-telemetry-feed").innerHTML =
+        `<div class="race-telemetry-line">Grid quiet — arm garages, then drop the flag.</div>`;
+      runMsg.textContent = "Session evidence cleared";
       document.getElementById("lab-last").textContent = "—";
-    };
-    document.getElementById("reload-evidence").onclick = async () => {
-      try {
-        await loadSummary();
-        runMsg.textContent = "Scored evidence reloaded";
-      } catch (err) {
-        runMsg.textContent = err.message;
-      }
+      document.getElementById("lab-verdict").textContent = "—";
     };
 
     document.getElementById("race").onclick = async () => {
-      setLabStatus("racing", "running");
-      runMsg.textContent = "Racing unary gRPC vs HTTP…";
+      const btn = document.getElementById("race");
+      flashButton(btn);
+      btn.disabled = true;
+      document.getElementById("stream").disabled = true;
+      setLabStatus("green", "running");
+      setLights("go");
+      startRaceFx();
+      runMsg.textContent = "Green flag — same agents, two wires…";
+      document.getElementById("race-story-headline").textContent = "Lap in progress…";
+      document.getElementById("race-story-detail").textContent =
+        "Running identical severity / logs / runbook work over gRPC and HTTP.";
+      document.getElementById("ratio").textContent = "Delta open — waiting on both wires…";
       try {
+        const started = performance.now();
         const data = await api("/api/compare", {
           method: "POST",
           body: JSON.stringify(workloadBody()),
         });
-        document.getElementById("grpc-ms").innerHTML =
-          `${data.grpc.wall_latency_ms.toFixed(1)}<span>ms</span>`;
-        document.getElementById("http-ms").innerHTML =
-          `${data.http.wall_latency_ms.toFixed(1)}<span>ms</span>`;
+        const elapsed = performance.now() - started;
+        // Keep the board alive long enough to watch even if agents are fast.
+        const pad = Math.max(0, 1600 - elapsed);
+        if (pad) await new Promise((r) => setTimeout(r, pad));
+        stopRaceFx();
+        const story = raceStory(data);
+        paintRaceStory(story);
+        countUp(document.getElementById("grpc-ms"), data.grpc.wall_latency_ms);
+        countUp(document.getElementById("http-ms"), data.http.wall_latency_ms);
         document.getElementById("grpc-findings").innerHTML = findings(
           data.grpc.report,
           data.grpc.wall_latency_ms,
@@ -541,23 +923,33 @@
           data.http.mean_request_latency_ms,
           data.concurrency
         );
-        const winner =
-          data.grpc.wall_latency_ms <= data.http.wall_latency_ms ? "gRPC" : "HTTP";
-        const ratioText =
-          data.http_over_grpc_ratio == null
-            ? "Ratio unavailable"
-            : `HTTP wall ${data.http_over_grpc_ratio}× gRPC · ${data.log_count} logs · x${data.concurrency}`;
-        document.getElementById("ratio").textContent = `${winner} led · ${ratioText}`;
-        document.getElementById("lab-verdict").textContent = winner;
+        const gapLine = englishGap(
+          data.grpc.wall_latency_ms,
+          data.http.wall_latency_ms,
+          data.log_count,
+          String(data.concurrency)
+        );
+        document.getElementById("ratio").textContent = story.tie
+          ? `TIE · ${gapLine}`
+          : `P1 ${story.winner} · ${gapLine}`;
+        document.getElementById("ratio").classList.add("pop");
+        setTimeout(() => document.getElementById("ratio").classList.remove("pop"), 450);
+        document.getElementById("lab-verdict").textContent = story.winner;
         document.getElementById("lab-last").textContent =
           `${data.log_count}×${data.concurrency}`;
-        document.getElementById("lane-grpc").classList.toggle(
-          "winner",
-          winner === "gRPC"
-        );
-        document.getElementById("lane-http").classList.toggle(
-          "winner",
-          winner === "HTTP"
+        document.querySelector("#lane-grpc .lab-lane-kicker").textContent =
+          `${story.tie ? "P1=" : story.winner === "gRPC" ? "P1" : "P2"} · gRPC unary`;
+        document.querySelector("#lane-http .lab-lane-kicker").textContent =
+          `${story.tie ? "P1=" : story.winner === "HTTP" ? "P1" : "P2"} · HTTP / JSON`;
+        document.getElementById("lane-grpc").classList.toggle("winner", story.tie || story.winner === "gRPC");
+        document.getElementById("lane-http").classList.toggle("winner", story.tie || story.winner === "HTTP");
+        animateCars(data.grpc.wall_latency_ms, data.http.wall_latency_ms);
+        pushTelemetry(
+          story.tie
+            ? `chequered · dead heat · ~${data.grpc.wall_latency_ms.toFixed(0)} ms`
+            : `chequered · P1 ${story.winner} · gap ${Math.abs(
+                data.http.wall_latency_ms - data.grpc.wall_latency_ms
+              ).toFixed(0)} ms`
         );
         reportEl.textContent = JSON.stringify(data, null, 2);
         liveRun += 1;
@@ -565,25 +957,65 @@
           grpc: data.grpc.wall_latency_ms,
           http: data.http.wall_latency_ms,
         });
-        await afterRun();
-        setLabStatus("complete", "ok");
-        runMsg.textContent = "Race complete — board + evidence updated";
+        recordCompare(data);
+        appendLapRow({
+          label: `#${liveRun}`,
+          setup: `${Number(data.log_count).toLocaleString()} logs · x${data.concurrency}`,
+          grpc: data.grpc.wall_latency_ms,
+          http: data.http.wall_latency_ms,
+          english: englishGap(
+            data.grpc.wall_latency_ms,
+            data.http.wall_latency_ms,
+            data.log_count,
+            String(data.concurrency)
+          ),
+        });
+        const liveTake = document.getElementById("live-takeaway");
+        liveTake.style.display = "block";
+        liveTake.innerHTML =
+          `Shorter bar = faster engineer handoff. Latest lap: ${story.headline}`;
+        setLabStatus("chequered", "ok");
+        setLights("armed");
+        runMsg.textContent = "Chequered — story + session charts updated.";
       } catch (err) {
-        setLabStatus("fault", "degraded");
+        stopRaceFx();
+        setLabStatus("red", "degraded");
+        setLights("warmup");
         runMsg.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        document.getElementById("stream").disabled = false;
       }
     };
 
     document.getElementById("stream").onclick = async () => {
-      setLabStatus("streaming", "running");
-      runMsg.textContent = "Running gRPC stream path…";
+      const btn = document.getElementById("stream");
+      flashButton(btn);
+      btn.disabled = true;
+      document.getElementById("race").disabled = true;
+      setLabStatus("stream", "running");
+      setLights("go");
+      startRaceFx({ stream: true });
+      runMsg.textContent = "Stream lap — watching time-to-first-signal…";
       try {
+        const started = performance.now();
         const data = await api("/api/analyze", {
           method: "POST",
           body: JSON.stringify(workloadBody({ transport: "grpc-stream" })),
         });
-        document.getElementById("grpc-ms").innerHTML =
-          `${data.latency_ms.toFixed(1)}<span>ms</span>`;
+        const pad = Math.max(0, 1400 - (performance.now() - started));
+        if (pad) await new Promise((r) => setTimeout(r, pad));
+        stopRaceFx();
+        const events = (data.report.log_analysis_events || []).length;
+        paintRaceStory({
+          winner: "STREAM",
+          headline: `gRPC stream finished the package in ${data.latency_ms.toFixed(0)} ms.`,
+          detail:
+            `Streaming is the “feed moves before the race ends” lap. ` +
+            `This run emitted ${events} analysis events while building the same agent package ` +
+            `on ${data.payload_size.toLocaleString()} logs × ${data.concurrency} clients.`,
+        });
+        countUp(document.getElementById("grpc-ms"), data.latency_ms);
         document.getElementById("grpc-findings").innerHTML =
           findings(
             data.report,
@@ -591,31 +1023,105 @@
             data.mean_request_latency_ms,
             data.concurrency
           ) +
-          `<div>stream events: ${(data.report.log_analysis_events || []).length}</div>`;
+          `<div class="muted-line">${events} stream events reached the feed before (or as) the package closed.</div>`;
+        document.getElementById("http-ms").innerHTML = `—<span>ms</span>`;
+        document.getElementById("http-findings").textContent =
+          "HTTP unary not raced on stream laps — compare with Drop the flag.";
         document.getElementById("ratio").textContent =
-          `Stream path ${data.latency_ms.toFixed(1)} ms · ${data.payload_size} logs · x${data.concurrency}`;
+          `Stream package ${data.latency_ms.toFixed(0)} ms · ${data.payload_size} logs · x${data.concurrency}`;
         document.getElementById("lab-verdict").textContent = "STREAM";
         document.getElementById("lab-last").textContent =
           `stream ${data.payload_size}×${data.concurrency}`;
+        animateCars(data.latency_ms, data.latency_ms * 1.15);
+        pushTelemetry(`stream closed · ${events} events · ${data.latency_ms.toFixed(0)} ms`);
         reportEl.textContent = JSON.stringify(data, null, 2);
         liveRun += 1;
         pushLivePoint(`#${liveRun} · stream ${data.payload_size}×${data.concurrency}`, {
           stream: data.latency_ms,
         });
-        await afterRun();
-        setLabStatus("complete", "ok");
-        runMsg.textContent = "Stream path complete — board + evidence updated";
+        recordStream(data);
+        appendLapRow({
+          label: `#${liveRun}`,
+          setup: `stream · ${Number(data.payload_size).toLocaleString()} logs · x${data.concurrency}`,
+          grpc: data.latency_ms,
+          http: null,
+          english: `Stream package finished in ${data.latency_ms.toFixed(0)} ms.`,
+        });
+        const liveTake = document.getElementById("live-takeaway");
+        liveTake.style.display = "block";
+        liveTake.textContent =
+          "Stream bar = full package time. Session stream chart updated from this lap.";
+        setLabStatus("chequered", "ok");
+        setLights("armed");
+        runMsg.textContent = "Stream lap complete — story + charts updated.";
       } catch (err) {
-        setLabStatus("fault", "degraded");
+        stopRaceFx();
+        setLabStatus("red", "degraded");
+        setLights("warmup");
         runMsg.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        document.getElementById("race").disabled = false;
       }
     };
 
+    function applyPackageHandoff() {
+      const params = new URLSearchParams(location.search);
+      const fromControl =
+        params.get("from") === "race-control" || Boolean(loadHandoff());
+      const stored = loadHandoff() || {};
+      const source = params.get("source") || stored.source;
+      const fixture = params.get("fixture") || stored.fixture;
+      const payload = params.get("payload") || stored.payload_size;
+
+      if (source === "fixture" || source === "generated") {
+        sourceEl.value = source;
+      }
+      if (payload) {
+        const n = Number(payload);
+        const preset = [...payloadEl.options].some((o) => o.value === String(n));
+        if (preset) {
+          payloadEl.value = String(n);
+          payloadCustom.value = "";
+        } else if (n > 0) {
+          payloadCustom.value = String(n);
+        }
+      }
+      syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
+      if (fixture && sourceEl.value === "fixture") {
+        const has = [...fixtureEl.options].some((o) => o.value === fixture);
+        if (has) fixtureEl.value = fixture;
+      }
+
+      if (!fromControl) return;
+      const bar = document.getElementById("lab-handoff");
+      bar.hidden = false;
+      const caseName = stored.case || fixture || "linked package";
+      document.getElementById("lab-handoff-title").textContent =
+        `Racing package: ${caseName}`;
+      const bits = [];
+      if (stored.severity) bits.push(`flag ${stored.severity}`);
+      if (stored.cause) bits.push(stored.cause);
+      if (payload) bits.push(`${Number(payload).toLocaleString()} log lines`);
+      document.getElementById("lab-handoff-detail").textContent = bits.length
+        ? `Matched to Race Control · ${bits.join(" · ")}. Drop the flag to time delivery.`
+        : "Workload matched to the Race Control package. Drop the flag to time delivery.";
+      // Keep URL shareable without wiping storage.
+      if (params.get("from") !== "race-control" && stored.source) {
+        history.replaceState(null, "", labHrefFromHandoff(stored));
+      }
+      runMsg.textContent =
+        "Package linked from step 1 — arm garages, then drop the flag.";
+    }
+
     syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
-    Promise.all([refreshServers(), loadFixtures(), loadSummary()]).catch((err) => {
-      serverMsg.textContent = err.message;
-      document.getElementById("lab-stack").textContent = "ERROR";
-    });
+    wirePitFocus();
+    Promise.all([refreshServers(), loadFixtures()])
+      .then(() => applyPackageHandoff())
+      .catch((err) => {
+        serverMsg.textContent = err.message;
+        document.getElementById("lab-stack").textContent = "FAULT";
+      });
   </script>
 </body>
 </html>
