@@ -22,16 +22,23 @@ window.DemoCommon = {
   },
 
   findings(report, wallMs, meanMs, concurrency) {
-    if (!report) return "No report";
-    const statuses = (report.agent_outcomes || [])
-      .map((o) => `${o.name} ${o.status}`)
+    if (!report) return "No report yet.";
+    const sev = report.severity
+      ? `${report.severity.level} · score ${report.severity.score}`
+      : "severity pending";
+    const cause = report.log_analysis?.likely_cause || "cause pending";
+    const top = report.runbook && (report.runbook.recommendations || [])[0];
+    const runbook = top
+      ? `${top.title} (${Math.round((top.confidence || 0) * 100)}%)`
+      : "runbook pending";
+    const agents = (report.agent_outcomes || [])
+      .map((o) => `${o.name}:${o.status}`)
       .join(" · ");
-    const sev = report.severity ? report.severity.level : "—";
-    const cause = report.log_analysis?.likely_cause || "no likely cause";
-    return `<div><b>${sev}</b> · partial=${report.partial}</div>
-      <div>wall ${wallMs.toFixed(1)} ms · mean req ${meanMs.toFixed(1)} ms · x${concurrency}</div>
-      <div>${statuses}</div>
-      <div>${cause}</div>`;
+    return `<div><b>${sev}</b></div>
+      <div>Cause: ${cause}</div>
+      <div>Runbook: ${runbook}</div>
+      <div>Wall ${wallMs.toFixed(1)} ms · mean ${meanMs.toFixed(1)} ms · x${concurrency}</div>
+      <div>${agents || "no agent outcomes"}</div>`;
   },
 
   syncSource(sourceEl, fixtureField, payloadField, payloadCustomField) {

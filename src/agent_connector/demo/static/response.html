@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
-<body>
+<body class="ops-page">
   <div class="wrap">
     <nav class="topnav">
       <div class="links">
@@ -19,29 +19,25 @@
       </div>
     </nav>
 
-    <header class="hero">
-      <div class="reveal">
+    <header class="ops-banner reveal">
+      <div>
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
-          <strong>Incident response desk:</strong> the agentic planner observes
-          the incident, chooses tools, and acts — streamed live for engineers
-          watching the fix path.
+          Live incident-response console. The coordinator observes signals,
+          dispatches agents, and packages severity, cause, and runbook actions
+          for the on-call engineer.
         </p>
       </div>
-      <aside class="hero-side reveal d2">
-        <h2>On this page</h2>
-        <ol>
-          <li>Pick a fixture or generated load</li>
-          <li>Choose a planner</li>
-          <li>Run agentic response</li>
-          <li>Watch the live step timeline</li>
-        </ol>
-      </aside>
+      <div class="ops-meta">
+        <div><span>CHANNEL</span><strong id="ops-channel">IDLE</strong></div>
+        <div><span>PLANNER</span><strong id="ops-planner">—</strong></div>
+        <div><span>INCIDENT</span><strong id="ops-incident">—</strong></div>
+      </div>
     </header>
 
-    <div class="lab single">
-      <section class="panel reveal d2">
-        <h3>Incident workload</h3>
+    <div class="ops-layout">
+      <section class="panel ops-controls reveal d2">
+        <h3>Dispatch</h3>
         <div class="field-grid">
           <label>
             Source
@@ -77,45 +73,55 @@
           </label>
         </div>
         <p class="hint" id="planner-help">
-          Deterministic needs no API key. Live planners use env vars from the README.
+          Offline rule coordinator — full desk coverage without a live model.
         </p>
         <div class="controls" style="margin-top:0.75rem">
-          <button class="primary" id="agentic" type="button">Run agentic response</button>
+          <button class="primary live" id="agentic" type="button">Run incident response</button>
         </div>
-        <p class="hint">No gRPC/HTTP agent servers required — this path runs in-process.</p>
         <p class="msg" id="run-msg"></p>
       </section>
 
-      <section class="panel reveal d3">
-        <div class="agentic-desk" id="agentic-card">
-          <div class="agentic-desk-head">
-            <h4>Response desk</h4>
-            <span class="status-chip" id="agentic-status">idle</span>
-          </div>
-          <p class="hint" id="agentic-empty">
-            Observes the incident, decides which tools to call, then acts —
-            streamed live like an on-call console.
-          </p>
-          <div class="progress-track" id="agentic-progress"><div class="progress-bar"></div></div>
-          <ol id="agentic-timeline" class="agentic-timeline"></ol>
-          <div class="result-grid" id="agentic-results">
-            <div class="result-card"><div class="kicker">Severity</div><div class="body" id="card-severity">Waiting…</div></div>
-            <div class="result-card"><div class="kicker">Runbook</div><div class="body" id="card-runbook">Waiting…</div></div>
-            <div class="result-card"><div class="kicker">Log analysis</div><div class="body" id="card-logs">Waiting…</div></div>
-          </div>
-          <div class="findings" id="agentic-findings" style="margin-top:0.65rem">No agentic run yet.</div>
+      <section class="ops-console reveal d3">
+        <div class="ops-console-head">
+          <h3>Response feed</h3>
+          <span class="status-chip" id="agentic-status">idle</span>
         </div>
-        <details>
-          <summary>Raw response</summary>
-          <pre id="report">{}</pre>
-        </details>
+        <div class="progress-track" id="agentic-progress"><div class="progress-bar"></div></div>
+        <ol id="agentic-timeline" class="ops-feed"></ol>
+        <p class="ops-empty" id="agentic-empty">
+          Waiting for dispatch. When the run starts, each agent action appears here
+          with engineer-facing findings.
+        </p>
       </section>
     </div>
+
+    <section class="ops-cards reveal d3">
+      <article class="ops-card" id="card-wrap-severity">
+        <div class="ops-card-kicker">Severity</div>
+        <div class="ops-card-value" id="card-severity-level">STANDING BY</div>
+        <div class="ops-card-body" id="card-severity">No severity score yet.</div>
+      </article>
+      <article class="ops-card" id="card-wrap-runbook">
+        <div class="ops-card-kicker">Runbook</div>
+        <div class="ops-card-value" id="card-runbook-title">STANDING BY</div>
+        <div class="ops-card-body" id="card-runbook">No remediation path yet.</div>
+      </article>
+      <article class="ops-card" id="card-wrap-logs">
+        <div class="ops-card-kicker">Likely cause</div>
+        <div class="ops-card-value" id="card-logs-cause">STANDING BY</div>
+        <div class="ops-card-body" id="card-logs">No forensics yet.</div>
+      </article>
+    </section>
+
+    <details class="ops-raw">
+      <summary>Raw response payload</summary>
+      <pre id="report">{}</pre>
+    </details>
   </div>
 
   <script src="/static/common.js"></script>
   <script>
-    const { api, findings, syncSource, loadFixtureOptions } = DemoCommon;
+    const { syncSource, loadFixtureOptions } = DemoCommon;
     const runMsg = document.getElementById("run-msg");
     const sourceEl = document.getElementById("source");
     const fixtureEl = document.getElementById("fixture");
@@ -125,12 +131,30 @@
     const payloadEl = document.getElementById("payload");
     const payloadCustom = document.getElementById("payload-custom");
     const reportEl = document.getElementById("report");
+    const feed = document.getElementById("agentic-timeline");
+    const empty = document.getElementById("agentic-empty");
 
     const plannerHelp = {
-      deterministic: "Offline rules — no API key. Best for demos and CI.",
-      openai: "Needs OPENAI_API_KEY (or compatible base URL + key).",
-      cloudflare: "Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN.",
-      http: "Needs AGENT_CONNECTOR_PLANNER_URL pointing at your planner.",
+      deterministic: "Offline rule coordinator — full desk coverage without a live model.",
+      openai: "Live OpenAI-compatible coordinator for open-ended tool choice.",
+      cloudflare: "Live Workers AI coordinator for open-ended tool choice.",
+      http: "Custom HTTP coordinator endpoint for your own planner service.",
+    };
+
+    const phaseLabel = {
+      observe: "INTAKE",
+      decide: "DECIDE",
+      act: "ACT",
+      finish: "HANDOFF",
+    };
+
+    const toolTitle = {
+      observe: "Signal intake",
+      plan: "Coordinator decision",
+      analyze_logs: "Log forensics",
+      analyze_severity: "Severity assessment",
+      recommend_runbook: "Runbook match",
+      finish: "Engineer handoff",
     };
 
     function workloadBody() {
@@ -151,60 +175,186 @@
       const chip = document.getElementById("agentic-status");
       chip.textContent = text;
       chip.className = "status-chip" + (kind ? " " + kind : "");
+      document.getElementById("ops-channel").textContent = text.toUpperCase();
     }
 
     function setAgenticProgress(on) {
       document.getElementById("agentic-progress").classList.toggle("on", !!on);
     }
 
-    function appendAgenticStep(step, index) {
-      const list = document.getElementById("agentic-timeline");
-      const li = document.createElement("li");
-      li.className = `phase-${step.phase || "act"}`;
-      li.style.animationDelay = `${Math.min(index, 12) * 40}ms`;
-      const latency =
-        step.latency_ms == null ? "" : ` · ${Number(step.latency_ms).toFixed(1)} ms`;
-      li.innerHTML =
-        `<div class="meta">r${step.round} · ${step.phase}/${step.tool} · ${step.status}${latency}</div>` +
-        `<div><strong>${step.decision || step.tool}</strong></div>` +
-        `<div>${step.detail || ""}</div>`;
-      list.appendChild(li);
-      list.scrollTop = list.scrollHeight;
+    function resetCards() {
+      setCard("severity", "STANDING BY", "Waiting for severity agent.");
+      setCard("runbook", "STANDING BY", "Waiting for runbook agent.");
+      setCard("logs", "STANDING BY", "Waiting for log forensics.");
+      ["card-wrap-severity", "card-wrap-runbook", "card-wrap-logs"].forEach((id) => {
+        document.getElementById(id).classList.remove("hot", "miss");
+      });
     }
 
-    function fillAgenticCards(report) {
-      const sev = report && report.severity;
-      const rb = report && report.runbook;
-      const log = report && report.log_analysis;
-      const top = rb && (rb.recommendations || [])[0];
-      document.getElementById("card-severity").textContent = sev
-        ? `${sev.level} (score ${sev.score}) — ${sev.rationale || "n/a"}`
-        : "Waiting…";
-      document.getElementById("card-runbook").textContent = top
-        ? `${top.title} (${Math.round((top.confidence || 0) * 100)}%) — ${(top.steps || [])
-            .slice(0, 2)
-            .map((s) => s.action)
-            .join(" · ") || "matched"}`
-        : "Waiting…";
-      document.getElementById("card-logs").textContent = log
-        ? `${log.likely_cause || "cause unknown"} — ${(log.summary || "").slice(0, 140)}`
-        : "Waiting…";
+    function setCard(kind, value, body) {
+      if (kind === "severity") {
+        document.getElementById("card-severity-level").textContent = value;
+        document.getElementById("card-severity").textContent = body;
+      } else if (kind === "runbook") {
+        document.getElementById("card-runbook-title").textContent = value;
+        document.getElementById("card-runbook").textContent = body;
+      } else {
+        document.getElementById("card-logs-cause").textContent = value;
+        document.getElementById("card-logs").textContent = body;
+      }
+    }
+
+    function markMissed(kind, value, body) {
+      setCard(kind, value, body);
+      document.getElementById(`card-wrap-${kind}`).classList.add("miss");
+    }
+
+    function applyArtifact(artifact) {
+      if (!artifact || !artifact.kind) return;
+      if (artifact.kind === "severity") {
+        document.getElementById("card-severity-level").textContent =
+          `${artifact.level || "UNKNOWN"} · ${artifact.score ?? "—"}`;
+        document.getElementById("card-severity").textContent =
+          artifact.rationale ||
+          (artifact.evidence || []).join(" · ") ||
+          "Severity scored.";
+        document.getElementById("card-wrap-severity").classList.add("hot");
+      } else if (artifact.kind === "runbook") {
+        if (artifact.matched === false) {
+          document.getElementById("card-runbook-title").textContent = "NO MATCH";
+          document.getElementById("card-runbook").textContent =
+            "No remediation runbook matched this signature.";
+        } else {
+          const conf = artifact.confidence == null
+            ? ""
+            : ` · ${Math.round(artifact.confidence * 100)}%`;
+          document.getElementById("card-runbook-title").textContent =
+            `${artifact.title || "Runbook"}${conf}`;
+          const actions = (artifact.actions || []).join(" → ");
+          document.getElementById("card-runbook").textContent =
+            actions || "Matched runbook ready for engineer handoff.";
+        }
+        document.getElementById("card-wrap-runbook").classList.add("hot");
+      } else if (artifact.kind === "logs") {
+        document.getElementById("card-logs-cause").textContent =
+          artifact.likely_cause || "CAUSE UNCLEAR";
+        document.getElementById("card-logs").textContent =
+          artifact.summary || "Log forensics complete.";
+        document.getElementById("card-wrap-logs").classList.add("hot");
+      } else if (artifact.kind === "observe") {
+        document.getElementById("ops-incident").textContent =
+          artifact.incident_id || "—";
+      } else if (artifact.kind === "finish") {
+        if (artifact.severity) applyArtifact({ kind: "severity", ...artifact.severity });
+        if (artifact.runbook) applyArtifact({ kind: "runbook", matched: true, ...artifact.runbook });
+        if (artifact.logs) applyArtifact({ kind: "logs", ...artifact.logs });
+      }
+    }
+
+    function fillFromReport(report) {
+      if (!report) return;
+      if (report.severity) {
+        applyArtifact({
+          kind: "severity",
+          level: report.severity.level,
+          score: report.severity.score,
+          rationale: report.severity.rationale,
+        });
+      } else {
+        markMissed(
+          "severity",
+          "NOT DISPATCHED",
+          "Coordinator never called severity scoring this run."
+        );
+      }
+      const top = report.runbook && (report.runbook.recommendations || [])[0];
+      if (top) {
+        applyArtifact({
+          kind: "runbook",
+          matched: true,
+          title: top.title,
+          confidence: top.confidence,
+          actions: (top.steps || []).slice(0, 3).map((s) => s.action),
+        });
+      } else if (report.runbook) {
+        applyArtifact({ kind: "runbook", matched: false });
+      } else {
+        markMissed(
+          "runbook",
+          "NOT DISPATCHED",
+          "Coordinator never requested a runbook match this run."
+        );
+      }
+      if (report.log_analysis) {
+        applyArtifact({
+          kind: "logs",
+          likely_cause: report.log_analysis.likely_cause,
+          summary: report.log_analysis.summary,
+        });
+      } else {
+        markMissed(
+          "logs",
+          "NOT DISPATCHED",
+          "Coordinator never ran log forensics this run."
+        );
+      }
+      if (report.incident_id) {
+        document.getElementById("ops-incident").textContent = report.incident_id;
+      }
+    }
+
+    function appendAgenticStep(step, index) {
+      empty.style.display = "none";
+      const li = document.createElement("li");
+      li.className = `ops-step phase-${step.phase || "act"}`;
+      li.style.animationDelay = `${Math.min(index, 12) * 35}ms`;
+      const latency =
+        step.latency_ms == null ? "" : `${Number(step.latency_ms).toFixed(1)} ms`;
+      const title =
+        step.headline ||
+        toolTitle[step.tool] ||
+        (step.phase === "decide" ? "Coordinator decision" : step.tool) ||
+        "Step";
+      const body =
+        step.detail ||
+        (step.phase === "decide" ? step.decision : "") ||
+        "No detail.";
+      li.innerHTML =
+        `<div class="ops-step-rail"><span>${phaseLabel[step.phase] || "STEP"}</span></div>` +
+        `<div class="ops-step-body">` +
+        `<div class="ops-step-top">` +
+        `<strong>${title}</strong>` +
+        `<span class="ops-step-meta">${step.status || ""}${latency ? " · " + latency : ""}</span>` +
+        `</div>` +
+        `<p>${body}</p>` +
+        `</div>`;
+      feed.appendChild(li);
+      feed.scrollTop = feed.scrollHeight;
+      applyArtifact(step.artifact || {});
     }
 
     function paintAgenticResult(data) {
-      const degraded = data.planner_degraded
-        ? `<div style="color:#b42318">degraded: ${data.planner_error || "planner fallback"}</div>`
-        : "";
-      document.getElementById("agentic-findings").innerHTML =
-        findings(data.report, data.latency_ms, data.latency_ms, 1) +
-        `<div>planner: ${data.planner} · steps: ${(data.steps || []).length}</div>` +
-        degraded;
-      fillAgenticCards(data.report || {});
+      const report = data.report || {};
+      fillFromReport(report);
+      document.getElementById("ops-planner").textContent = data.planner || "—";
       reportEl.textContent = JSON.stringify(data, null, 2);
       setAgenticStatus(
-        data.planner_degraded ? "degraded" : "done",
+        data.planner_degraded ? "degraded" : "complete",
         data.planner_degraded ? "degraded" : "ok"
       );
+      const missing = [];
+      if (!report.severity) missing.push("severity");
+      if (!report.runbook) missing.push("runbook");
+      if (!report.log_analysis) missing.push("log forensics");
+      if (data.planner_degraded) {
+        runMsg.textContent =
+          data.planner_error || "Response finished with planner degradation";
+      } else if (missing.length) {
+        runMsg.textContent =
+          `Partial package — missing ${missing.join(", ")}. Try deterministic planner for a full desk.`;
+      } else {
+        runMsg.textContent = "Incident package ready for engineer handoff.";
+      }
     }
 
     sourceEl.onchange = () =>
@@ -213,17 +363,20 @@
       const value = document.getElementById("planner").value;
       document.getElementById("planner-help").textContent =
         plannerHelp[value] || plannerHelp.deterministic;
+      document.getElementById("ops-planner").textContent = value;
     };
 
     document.getElementById("agentic").onclick = async () => {
       const button = document.getElementById("agentic");
       button.disabled = true;
-      const list = document.getElementById("agentic-timeline");
-      list.innerHTML = "";
-      fillAgenticCards({});
-      setAgenticStatus("running", "running");
+      feed.innerHTML = "";
+      empty.style.display = "";
+      resetCards();
+      setAgenticStatus("live", "running");
       setAgenticProgress(true);
-      runMsg.textContent = "Streaming agentic observe → decide → act…";
+      document.getElementById("ops-planner").textContent =
+        document.getElementById("planner").value;
+      runMsg.textContent = "Coordinator online — observing signals…";
       let stepIndex = 0;
       try {
         const body = workloadBody();
@@ -251,7 +404,10 @@
             const msg = JSON.parse(line);
             if (msg.event === "step") {
               appendAgenticStep(msg.data, stepIndex++);
-              setAgenticStatus(`${msg.data.phase || "act"} · ${msg.data.tool || "…"}`, "running");
+              setAgenticStatus(
+                `${phaseLabel[msg.data.phase] || "ACT"}`,
+                "running"
+              );
             } else if (msg.event === "done") {
               finalData = msg.data;
             } else if (msg.event === "error") {
@@ -264,11 +420,11 @@
           finalData.steps.forEach((step, i) => appendAgenticStep(step, i));
         }
         paintAgenticResult(finalData);
-        runMsg.textContent = finalData.planner_degraded
-          ? "Agentic response finished with planner degradation"
-          : "Agentic response finished — live timeline + cards updated";
+        if (!finalData.planner_degraded) {
+          runMsg.textContent = "Incident package ready for engineer handoff.";
+        }
       } catch (err) {
-        setAgenticStatus("error", "degraded");
+        setAgenticStatus("fault", "degraded");
         runMsg.textContent = err.message;
       } finally {
         setAgenticProgress(false);
@@ -276,6 +432,8 @@
       }
     };
 
+    document.getElementById("ops-planner").textContent =
+      document.getElementById("planner").value;
     syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     loadFixtureOptions(fixtureEl, payloadEl, null, payloadCustom).catch((err) => {
       runMsg.textContent = err.message;
