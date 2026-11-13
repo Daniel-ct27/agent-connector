@@ -9,8 +9,30 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
-<body>
-  <div class="wrap">
+<body class="hub-page">
+  <div class="hub-stage" aria-hidden="true">
+    <div class="hub-logs" id="hub-logs"></div>
+    <div class="hub-race">
+      <div class="hub-lane grpc-lane">
+        <span class="hub-lane-label">gRPC</span>
+        <div class="hub-track">
+          <span class="hub-pkt" style="--d:0s"></span>
+          <span class="hub-pkt" style="--d:1.1s"></span>
+          <span class="hub-pkt" style="--d:2.2s"></span>
+        </div>
+      </div>
+      <div class="hub-lane http-lane">
+        <span class="hub-lane-label">HTTP</span>
+        <div class="hub-track">
+          <span class="hub-pkt slow" style="--d:0.4s"></span>
+          <span class="hub-pkt slow" style="--d:1.8s"></span>
+          <span class="hub-pkt slow" style="--d:3.1s"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap hub-wrap">
     <nav class="topnav">
       <div class="links">
         <a class="active" href="/">Hub</a>
@@ -19,7 +41,7 @@
       </div>
     </nav>
 
-    <header class="hero">
+    <header class="hero hub-hero">
       <div class="reveal">
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
@@ -48,5 +70,30 @@
       </a>
     </div>
   </div>
+
+  <script>
+    const lines = [
+      "ERROR api-gateway upstream connection refused checkout-service:8080",
+      "ERROR checkout-service dial tcp 10.0.2.15:5432: i/o timeout",
+      "FATAL orders-db could not accept connections: too many clients",
+      "ERROR checkout-service failed to open database connection (attempt 2)",
+      "WARN  api-gateway retry budget exhausted route=/checkout",
+      "ERROR orders-db lock wait timeout on table checkout_sessions",
+      "ERROR checkout-service context canceled after 2000ms unary deadline",
+      "FATAL inventory-worker stream aborted: RST_STREAM protocol error",
+    ];
+    const root = document.getElementById("hub-logs");
+    let i = 0;
+    function pushLog() {
+      const row = document.createElement("div");
+      row.className = "hub-log-line";
+      row.textContent = lines[i % lines.length];
+      root.appendChild(row);
+      i += 1;
+      while (root.children.length > 10) root.removeChild(root.firstChild);
+    }
+    for (let n = 0; n < 6; n += 1) pushLog();
+    setInterval(pushLog, 1600);
+  </script>
 </body>
 </html>
