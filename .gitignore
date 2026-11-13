@@ -27,6 +27,15 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Secrets / local env (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+**/cloudflare.env
+
 # OS / editor
 .DS_Store
 Thumbs.db
