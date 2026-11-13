@@ -3,41 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Incident Response · Agent Connector</title>
+  <title>Race Control · Agent Connector</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/demo.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/demo.css?v=race7" />
 </head>
-<body class="ops-page">
-  <div class="wrap">
+<body class="ops-page race-night">
+  <div class="race-asphalt" aria-hidden="true"></div>
+  <div class="wrap race-wrap">
     <nav class="topnav">
       <div class="links">
-        <a href="/">Hub</a>
-        <a class="active" href="/response">Incident Response</a>
-        <a href="/lab">Protocol Lab</a>
+        <a href="/">Paddock</a>
+        <a class="active" href="/response">1 · Package</a>
+        <a href="/lab">2 · Delivery</a>
       </div>
     </nav>
 
-    <header class="ops-banner reveal">
+    <header class="ops-banner race-hero reveal">
       <div>
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
-          Live incident-response console. The coordinator observes signals,
-          dispatches agents, and packages severity, cause, and runbook actions
-          for the on-call engineer.
+          Run the agents on an incident. Walk out with severity, cause, and pit
+          instructions.
         </p>
       </div>
-      <div class="ops-meta">
-        <div><span>CHANNEL</span><strong id="ops-channel">IDLE</strong></div>
-        <div><span>PLANNER</span><strong id="ops-planner">—</strong></div>
-        <div><span>INCIDENT</span><strong id="ops-incident">—</strong></div>
+      <div class="race-tower">
+        <div class="start-lights" id="ops-lights" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="race-tower-meta">
+          <div><span>CHANNEL</span><strong id="ops-channel">IDLE</strong></div>
+          <div><span>STRATEGIST</span><strong id="ops-planner">—</strong></div>
+          <div><span>CASE</span><strong id="ops-incident">—</strong></div>
+        </div>
       </div>
     </header>
 
     <div class="ops-layout">
-      <section class="panel ops-controls reveal d2">
-        <h3>Dispatch</h3>
+      <section class="panel ops-controls race-pit reveal d2">
+        <div class="race-section-label">Pit wall</div>
+        <h3>Race brief</h3>
         <div class="field-grid">
           <label>
             Source
@@ -63,7 +69,7 @@
             <input id="payload-custom" type="number" min="1" max="5000" placeholder="or type 250–5000" />
           </label>
           <label>
-            Planner
+            Strategist
             <select id="planner">
               <option value="deterministic" selected>deterministic (offline)</option>
               <option value="openai">openai-compatible</option>
@@ -73,55 +79,77 @@
           </label>
         </div>
         <div class="controls" style="margin-top:0.75rem">
-          <button class="primary live" id="agentic" type="button">Run incident response</button>
+          <button class="primary live" id="agentic" type="button">Drop the flag</button>
         </div>
         <p class="msg" id="run-msg"></p>
       </section>
 
-      <section class="ops-console reveal d3">
-        <div class="ops-console-head">
-          <h3>Response feed</h3>
-          <span class="status-chip" id="agentic-status">idle</span>
+      <section class="ops-console race-board reveal d3">
+        <div class="ops-console-head race-board-head">
+          <div>
+            <div class="race-section-label light">Timing feed</div>
+            <h3>Race control feed</h3>
+          </div>
+          <span class="status-chip" id="agentic-status">grid</span>
         </div>
         <div class="progress-track" id="agentic-progress"><div class="progress-bar"></div></div>
         <ol id="agentic-timeline" class="ops-feed"></ol>
-        <p class="ops-empty" id="agentic-empty">No active response yet.</p>
+        <p class="ops-empty" id="agentic-empty">Cars on the grid. Drop the flag to build the agent package.</p>
       </section>
     </div>
 
     <section class="helpdesk-solution reveal d3" id="helpdesk-solution">
-      <div class="helpdesk-kicker">Recommended actions</div>
-      <div class="helpdesk-title" id="helpdesk-title">No remediation yet</div>
+      <div class="helpdesk-kicker">Pit instructions</div>
+      <div class="helpdesk-title" id="helpdesk-title">No pit stop ordered yet</div>
       <ol class="helpdesk-actions" id="helpdesk-actions"></ol>
     </section>
 
     <section class="ops-cards reveal d3">
       <article class="ops-card" id="card-wrap-severity">
-        <div class="ops-card-kicker">Severity</div>
+        <div class="ops-card-kicker">Flag status</div>
         <div class="ops-card-value" id="card-severity-level">STANDING BY</div>
-        <div class="ops-card-body" id="card-severity">Waiting for severity agent.</div>
+        <div class="ops-card-body" id="card-severity">—</div>
       </article>
       <article class="ops-card" id="card-wrap-runbook">
-        <div class="ops-card-kicker">Runbook</div>
+        <div class="ops-card-kicker">Pit strategy</div>
         <div class="ops-card-value" id="card-runbook-title">STANDING BY</div>
-        <div class="ops-card-body" id="card-runbook">Waiting for runbook agent.</div>
+        <div class="ops-card-body" id="card-runbook">—</div>
       </article>
       <article class="ops-card" id="card-wrap-logs">
-        <div class="ops-card-kicker">Likely cause</div>
+        <div class="ops-card-kicker">Telemetry cause</div>
         <div class="ops-card-value" id="card-logs-cause">STANDING BY</div>
-        <div class="ops-card-body" id="card-logs">Waiting for log forensics.</div>
+        <div class="ops-card-body" id="card-logs">—</div>
       </article>
     </section>
 
+    <section class="handoff-bar" id="handoff-bar" hidden>
+      <div>
+        <div class="handoff-kicker">Package ready · next step</div>
+        <div class="handoff-title" id="handoff-title">Race this package on the delivery board</div>
+        <p class="handoff-detail" id="handoff-detail">
+          Same incident, same agents — Delivery times gRPC vs HTTP handoff of this package.
+        </p>
+      </div>
+      <a class="cta handoff-cta" id="handoff-cta" href="/lab">Race delivery →</a>
+    </section>
+
     <details class="ops-raw">
-      <summary>Raw response payload</summary>
+      <summary>Raw telemetry payload</summary>
       <pre id="report">{}</pre>
     </details>
   </div>
 
-  <script src="/static/common.js"></script>
+  <script src="/static/common.js?v=race6"></script>
   <script>
-    const { syncSource, loadFixtureOptions } = DemoCommon;
+    const {
+      syncSource,
+      loadFixtureOptions,
+      incidentLabel,
+      severityBlurb,
+      saveHandoff,
+      labHrefFromHandoff,
+      flashButton,
+    } = DemoCommon;
     const runMsg = document.getElementById("run-msg");
     const sourceEl = document.getElementById("source");
     const fixtureEl = document.getElementById("fixture");
@@ -133,22 +161,27 @@
     const reportEl = document.getElementById("report");
     const feed = document.getElementById("agentic-timeline");
     const empty = document.getElementById("agentic-empty");
+    const opsLights = document.getElementById("ops-lights");
 
     const phaseLabel = {
       observe: "INTAKE",
-      decide: "DECIDE",
-      act: "ACT",
-      finish: "HANDOFF",
+      decide: "CALL",
+      act: "DEPLOY",
+      finish: "BOX",
     };
 
     const toolTitle = {
-      observe: "Signal intake",
-      plan: "Coordinator decision",
-      analyze_logs: "Log forensics",
-      analyze_severity: "Severity assessment",
-      recommend_runbook: "Runbook match",
+      observe: "Telemetry intake",
+      plan: "Race call",
+      analyze_logs: "Telemetry forensics",
+      analyze_severity: "Flag assessment",
+      recommend_runbook: "Pit strategy match",
       finish: "Engineer handoff",
     };
+
+    function setLights(mode) {
+      opsLights.className = "start-lights" + (mode ? " " + mode : "");
+    }
 
     function workloadBody() {
       const source = sourceEl.value;
@@ -176,14 +209,14 @@
     }
 
     function resetCards() {
-      setCard("severity", "STANDING BY", "Waiting for severity agent.");
-      setCard("runbook", "STANDING BY", "Waiting for runbook agent.");
-      setCard("logs", "STANDING BY", "Waiting for log forensics.");
+      setCard("severity", "STANDING BY", "—");
+      setCard("runbook", "STANDING BY", "—");
+      setCard("logs", "STANDING BY", "—");
       ["card-wrap-severity", "card-wrap-runbook", "card-wrap-logs"].forEach((id) => {
         document.getElementById(id).classList.remove("hot", "miss");
       });
       document.getElementById("helpdesk-solution").classList.remove("ready");
-      document.getElementById("helpdesk-title").textContent = "No remediation yet";
+      document.getElementById("helpdesk-title").textContent = "No pit stop ordered yet";
       document.getElementById("helpdesk-actions").innerHTML = "";
     }
 
@@ -226,33 +259,32 @@
       if (!artifact || !artifact.kind) return;
       if (artifact.kind === "severity") {
         document.getElementById("card-severity-level").textContent =
-          `${artifact.level || "UNKNOWN"} · ${artifact.score ?? "—"}`;
+          `${artifact.level || "UNKNOWN"} · ${artifact.score ?? "—"}/100`;
         document.getElementById("card-severity").textContent =
-          artifact.rationale ||
-          (artifact.evidence || []).join(" · ") ||
-          "Severity scored.";
-        document.getElementById("card-wrap-severity").classList.add("hot");
+          severityBlurb(artifact);
+        const sevCard = document.getElementById("card-wrap-severity");
+        sevCard.classList.add("hot", "pop");
+        setTimeout(() => sevCard.classList.remove("pop"), 400);
       } else if (artifact.kind === "runbook") {
         if (artifact.matched === false) {
           document.getElementById("card-runbook-title").textContent = "NO MATCH";
           document.getElementById("card-runbook").textContent =
-            "No remediation runbook matched this signature.";
+            "No pit strategy matched this signature.";
           document.getElementById("helpdesk-title").textContent =
-            "No remediation path matched";
-          document.getElementById("helpdesk-actions").innerHTML =
-            "<li>Escalate with the likely cause and severity while a runbook is authored.</li>";
+            "No pit strategy matched";
+          document.getElementById("helpdesk-actions").innerHTML = "";
           document.getElementById("helpdesk-solution").classList.add("ready");
         } else {
           const conf = artifact.confidence == null
             ? ""
             : ` · ${Math.round(artifact.confidence * 100)}%`;
           document.getElementById("card-runbook-title").textContent =
-            `${artifact.title || "Runbook"}${conf}`;
+            `${artifact.title || "Pit strategy"}${conf}`;
           const actions = artifact.actions || [];
           document.getElementById("card-runbook").textContent =
-            actions.join(" → ") || "Matched runbook ready for engineer handoff.";
+            actions.join(" → ") || "Matched strategy ready for engineer handoff.";
           setHelpdeskActions(
-            artifact.title || "Matched runbook",
+            artifact.title || "Matched pit strategy",
             actions,
             artifact.confidence
           );
@@ -262,11 +294,11 @@
         document.getElementById("card-logs-cause").textContent =
           artifact.likely_cause || "CAUSE UNCLEAR";
         document.getElementById("card-logs").textContent =
-          artifact.summary || "Log forensics complete.";
+          artifact.summary || "Telemetry forensics complete.";
         document.getElementById("card-wrap-logs").classList.add("hot");
       } else if (artifact.kind === "observe") {
         document.getElementById("ops-incident").textContent =
-          artifact.incident_id || "—";
+          incidentLabel(artifact.incident_id, artifact.scenario);
       } else if (artifact.kind === "finish") {
         if (artifact.severity) applyArtifact({ kind: "severity", ...artifact.severity });
         if (artifact.runbook) applyArtifact({ kind: "runbook", matched: true, ...artifact.runbook });
@@ -282,12 +314,20 @@
           level: report.severity.level,
           score: report.severity.score,
           rationale: report.severity.rationale,
+          evidence: (report.severity.evidence || [])
+            .slice(0, 3)
+            .map((item) =>
+              typeof item === "string"
+                ? item
+                : `${item.service || ""}: ${item.summary || ""}`.trim()
+            )
+            .filter(Boolean),
         });
       } else {
         markMissed(
           "severity",
           "NOT DISPATCHED",
-          "Coordinator never called severity scoring this run."
+          "Strategist never called flag assessment this lap."
         );
       }
       const top = report.runbook && (report.runbook.recommendations || [])[0];
@@ -305,7 +345,7 @@
         markMissed(
           "runbook",
           "NOT DISPATCHED",
-          "Coordinator never requested a runbook match this run."
+          "Strategist never requested a pit strategy this lap."
         );
       }
       if (report.log_analysis) {
@@ -318,11 +358,14 @@
         markMissed(
           "logs",
           "NOT DISPATCHED",
-          "Coordinator never ran log forensics this run."
+          "Strategist never ran telemetry forensics this lap."
         );
       }
-      if (report.incident_id) {
-        document.getElementById("ops-incident").textContent = report.incident_id;
+      if (report.incident_id || report.scenario) {
+        document.getElementById("ops-incident").textContent = incidentLabel(
+          report.incident_id,
+          report.scenario
+        );
       }
     }
 
@@ -336,7 +379,7 @@
       const title =
         step.headline ||
         toolTitle[step.tool] ||
-        (step.phase === "decide" ? "Coordinator decision" : step.tool) ||
+        (step.phase === "decide" ? "Race call" : step.tool) ||
         "Step";
       const body =
         step.detail ||
@@ -362,21 +405,47 @@
       document.getElementById("ops-planner").textContent = data.planner || "—";
       reportEl.textContent = JSON.stringify(data, null, 2);
       setAgenticStatus(
-        data.planner_degraded ? "degraded" : "complete",
+        data.planner_degraded ? "yellow" : "chequered",
         data.planner_degraded ? "degraded" : "ok"
       );
+      setLights(data.planner_degraded ? "warmup" : "armed");
       const missing = [];
-      if (!report.severity) missing.push("severity");
-      if (!report.runbook) missing.push("runbook");
-      if (!report.log_analysis) missing.push("log forensics");
+      if (!report.severity) missing.push("flag status");
+      if (!report.runbook) missing.push("pit strategy");
+      if (!report.log_analysis) missing.push("telemetry");
       if (missing.length) {
         runMsg.textContent = `Partial package — missing ${missing.join(", ")}.`;
       } else if (data.planner_degraded) {
         runMsg.textContent =
-          "Helpdesk package ready (planner needed desk completion).";
+          "Package ready (strategist needed desk completion). Next: race delivery.";
       } else {
-        runMsg.textContent = "Helpdesk package ready — follow recommended actions.";
+        runMsg.textContent = "Package ready. Next: race how fast it arrives.";
       }
+
+      const caseName = incidentLabel(report.incident_id, report.scenario);
+      const handoff = {
+        source: sourceEl.value,
+        fixture: fixtureEl.value,
+        payload_size: Number(payloadCustom.value) > 0
+          ? Number(payloadCustom.value)
+          : Number(payloadEl.value),
+        case: caseName,
+        severity: report.severity?.level || null,
+        cause: report.log_analysis?.likely_cause || null,
+        planner: data.planner || document.getElementById("planner").value,
+      };
+      saveHandoff(handoff);
+      const bar = document.getElementById("handoff-bar");
+      bar.hidden = false;
+      document.getElementById("handoff-title").textContent =
+        `Race “${caseName}” over gRPC vs HTTP`;
+      const bits = [];
+      if (handoff.severity) bits.push(`flag ${handoff.severity}`);
+      if (handoff.cause) bits.push(handoff.cause);
+      document.getElementById("handoff-detail").textContent = bits.length
+        ? `Package includes ${bits.join(" · ")}. Delivery race uses this same workload.`
+        : "Delivery race uses this same workload — only the wire changes.";
+      document.getElementById("handoff-cta").href = labHrefFromHandoff(handoff);
     }
 
     sourceEl.onchange = () =>
@@ -388,15 +457,19 @@
 
     document.getElementById("agentic").onclick = async () => {
       const button = document.getElementById("agentic");
+      flashButton(button);
       button.disabled = true;
       feed.innerHTML = "";
       empty.style.display = "";
       resetCards();
-      setAgenticStatus("live", "running");
+      document.getElementById("handoff-bar").hidden = true;
+      setAgenticStatus("green", "running");
+      setLights("go");
       setAgenticProgress(true);
+      document.querySelector(".ops-console")?.classList.add("live");
       document.getElementById("ops-planner").textContent =
         document.getElementById("planner").value;
-      runMsg.textContent = "Coordinator online — observing signals…";
+      runMsg.textContent = "Green flag — building the agent package…";
       let stepIndex = 0;
       try {
         const body = workloadBody();
@@ -407,7 +480,12 @@
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || res.statusText || "agentic stream failed");
+          throw new Error(
+            DemoCommon.safeMessage(
+              err.detail || res.statusText,
+              "agentic stream failed"
+            )
+          );
         }
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -425,13 +503,15 @@
             if (msg.event === "step") {
               appendAgenticStep(msg.data, stepIndex++);
               setAgenticStatus(
-                `${phaseLabel[msg.data.phase] || "ACT"}`,
+                `${phaseLabel[msg.data.phase] || "DEPLOY"}`,
                 "running"
               );
             } else if (msg.event === "done") {
               finalData = msg.data;
             } else if (msg.event === "error") {
-              throw new Error(msg.data.detail || "agentic run failed");
+              throw new Error(
+                DemoCommon.safeMessage(msg.data.detail, "agentic run failed")
+              );
             }
           }
         }
@@ -440,14 +520,13 @@
           finalData.steps.forEach((step, i) => appendAgenticStep(step, i));
         }
         paintAgenticResult(finalData);
-        if (!finalData.planner_degraded) {
-          runMsg.textContent = "Incident package ready for engineer handoff.";
-        }
       } catch (err) {
-        setAgenticStatus("fault", "degraded");
+        setAgenticStatus("red", "degraded");
+        setLights("warmup");
         runMsg.textContent = err.message;
       } finally {
         setAgenticProgress(false);
+        document.querySelector(".ops-console")?.classList.remove("live");
         button.disabled = false;
       }
     };
