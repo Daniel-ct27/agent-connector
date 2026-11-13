@@ -174,6 +174,7 @@
     </section>
   </div>
 
+  <script src="/static/common.js"></script>
   <script>
     const serverList = document.getElementById("server-list");
     const serverMsg = document.getElementById("server-msg");
@@ -190,28 +191,11 @@
     const summaryBody = document.getElementById("summary-body");
     const summaryMsg = document.getElementById("summary-msg");
 
+    const { api, findings, syncSource, loadFixtureOptions, chartColors } = DemoCommon;
+
     let charts = { latency: null, throughput: null, ttfe: null };
     let liveChart = null;
     let liveRun = 0;
-
-    const chartColors = {
-      grpc: "#0b6e4f",
-      http: "#b45309",
-      ink: "#121814",
-      signal: "#cfef3a",
-    };
-
-    async function api(path, options = {}) {
-      const res = await fetch(path, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(typeof data.detail === "string" ? data.detail : res.statusText);
-      }
-      return data;
-    }
 
     function workloadBody(extra = {}) {
       const source = sourceEl.value;
@@ -226,26 +210,6 @@
         concurrency: Number(concurrencyEl.value),
         ...extra,
       };
-    }
-
-    function syncSource() {
-      const generated = sourceEl.value === "generated";
-      fixtureField.classList.toggle("hidden", generated);
-      payloadField.classList.toggle("hidden", !generated);
-      payloadCustomField.classList.toggle("hidden", !generated);
-    }
-
-    function findings(report, wallMs, meanMs, concurrency) {
-      if (!report) return "No report";
-      const statuses = (report.agent_outcomes || [])
-        .map((o) => `${o.name} ${o.status}`)
-        .join(" · ");
-      const sev = report.severity ? report.severity.level : "—";
-      const cause = report.log_analysis?.likely_cause || "no likely cause";
-      return `<div><b>${sev}</b> · partial=${report.partial}</div>
-        <div>wall ${wallMs.toFixed(1)} ms · mean req ${meanMs.toFixed(1)} ms · x${concurrency}</div>
-        <div>${statuses}</div>
-        <div>${cause}</div>`;
     }
 
     function renderServers(servers) {
@@ -290,31 +254,7 @@
     }
 
     async function loadFixtures() {
-      const data = await api("/api/fixtures");
-      fixtureEl.innerHTML = "";
-      for (const name of data.fixtures) {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name.replace(".json", "");
-        fixtureEl.appendChild(opt);
-      }
-      payloadEl.innerHTML = "";
-      for (const size of data.payload_sizes) {
-        const opt = document.createElement("option");
-        opt.value = String(size);
-        opt.textContent = size.toLocaleString();
-        if (size === 1000) opt.selected = true;
-        payloadEl.appendChild(opt);
-      }
-      concurrencyEl.innerHTML = "";
-      for (const level of data.concurrency_levels) {
-        const opt = document.createElement("option");
-        opt.value = String(level);
-        opt.textContent = String(level);
-        if (level === 1) opt.selected = true;
-        concurrencyEl.appendChild(opt);
-      }
-      payloadCustom.max = data.max_log_entries;
+      await loadFixtureOptions(fixtureEl, payloadEl, concurrencyEl, payloadCustom);
     }
 
     function lineChart(canvasId, labels, datasets, xTitle) {
@@ -528,7 +468,8 @@
       try { await loadSummary(); } catch (_) { /* keep prior */ }
     }
 
-    sourceEl.onchange = syncSource;
+    sourceEl.onchange = () =>
+      syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     document.getElementById("start-grpc").onclick = async () => {
       serverMsg.textContent = "Starting gRPC processes…";
       try {
@@ -697,7 +638,7 @@
       }
     };
 
-    syncSource();
+    syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     Promise.all([refreshServers(), loadFixtures(), loadSummary()]).catch((err) => {
       serverMsg.textContent = err.message;
     });
