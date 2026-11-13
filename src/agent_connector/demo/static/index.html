@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Agent Connector</title>
+  <title>Agent Connector · Race Weekend</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/demo.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/demo.css?v=race7" />
 </head>
-<body class="hub-page">
+<body class="hub-page race-night">
+  <div class="race-asphalt" aria-hidden="true"></div>
   <div class="hub-wallpaper" aria-hidden="true">
     <div class="hub-logs" id="hub-logs"></div>
   </div>
@@ -17,9 +18,9 @@
   <div class="hub-shell">
     <nav class="topnav">
       <div class="links">
-        <a class="active" href="/">Hub</a>
-        <a href="/response">Incident Response</a>
-        <a href="/lab">Protocol Lab</a>
+        <a class="active" href="/">Paddock</a>
+        <a href="/response">1 · Package</a>
+        <a href="/lab">2 · Delivery</a>
       </div>
     </nav>
 
@@ -27,22 +28,46 @@
       <header class="hub-hero reveal">
         <p class="brand"><a href="/">Agent<br />Connector<span>.</span></a></p>
         <p class="question">
-          Agentic incident response on one side. gRPC vs HTTP protocol evidence
-          on the other.
+          One agentic system. First it builds the incident package. Then you
+          race how fast that same package arrives over gRPC vs HTTP.
         </p>
       </header>
 
-      <section class="hub-race reveal d2" aria-hidden="true">
+      <section class="hub-pipeline reveal d2">
+        <div class="hub-step">
+          <span class="hub-step-num">01</span>
+          <div>
+            <strong>Build the package</strong>
+            <p>Coordinator observes, dispatches agents, returns severity + cause + runbook.</p>
+          </div>
+        </div>
+        <div class="hub-step-arrow" aria-hidden="true">→</div>
+        <div class="hub-step">
+          <span class="hub-step-num">02</span>
+          <div>
+            <strong>Race the delivery</strong>
+            <p>Same agents, same logs — only the wire changes. Who gets it to the on-call first?</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hub-race reveal d2" id="hub-race" aria-hidden="true">
+        <div class="hub-race-top">
+          <div class="start-lights mini armed">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <span class="hub-race-tag" id="hub-race-tag">LIVE GRID</span>
+        </div>
         <div class="hub-lane grpc-lane">
           <div class="hub-lane-meta">
             <span class="hub-lane-label">gRPC</span>
             <span class="hub-lane-note">binary · stream</span>
           </div>
           <div class="hub-track">
-            <span class="hub-pkt" style="--d:0s"></span>
-            <span class="hub-pkt" style="--d:0.9s"></span>
-            <span class="hub-pkt" style="--d:1.8s"></span>
-            <span class="hub-pkt" style="--d:2.7s"></span>
+            <span class="hub-car grpc" style="--d:0s"></span>
+            <span class="hub-car grpc" style="--d:0.9s"></span>
+            <span class="hub-car grpc" style="--d:1.8s"></span>
+            <span class="chequer hub-finish"></span>
           </div>
         </div>
         <div class="hub-lane http-lane">
@@ -51,49 +76,62 @@
             <span class="hub-lane-note">json · unary</span>
           </div>
           <div class="hub-track">
-            <span class="hub-pkt slow" style="--d:0.35s"></span>
-            <span class="hub-pkt slow" style="--d:1.5s"></span>
-            <span class="hub-pkt slow" style="--d:2.7s"></span>
+            <span class="hub-car http slow" style="--d:0.35s"></span>
+            <span class="hub-car http slow" style="--d:1.5s"></span>
+            <span class="hub-car http slow" style="--d:2.7s"></span>
+            <span class="chequer hub-finish"></span>
           </div>
         </div>
       </section>
 
       <div class="hub-grid">
-        <a class="hub-card reveal d2" href="/response">
-          <h3>Incident Response</h3>
+        <a class="hub-card reveal d2" id="card-response" href="/response">
+          <span class="hub-card-bay">STEP 01</span>
+          <h3>Build the package</h3>
           <p>
-            Watch the agentic system observe an incident, choose tools, and act —
-            live timeline, severity, runbook, and log analysis.
+            Run the agentic loop on an incident. Watch intake → call → deploy →
+            box. Walk out with severity, cause, and pit instructions.
           </p>
-          <span class="cta">Open response desk →</span>
+          <span class="cta">Open race control →</span>
         </a>
-        <a class="hub-card reveal d3" href="/lab">
-          <h3>Protocol Lab</h3>
+        <a class="hub-card reveal d3" id="card-lab" href="/lab">
+          <span class="hub-card-bay">STEP 02</span>
+          <h3>Race the delivery</h3>
           <p>
-            Race the same agents over gRPC and HTTP/JSON, then inspect live race
-            charts and Stage&nbsp;7 evidence.
+            Take that same agent workload and time gRPC vs HTTP. The charts are
+            not a separate product — they measure package handoff speed.
           </p>
-          <span class="cta">Open protocol lab →</span>
+          <span class="cta" id="card-lab-cta">Open delivery race →</span>
         </a>
       </div>
     </main>
   </div>
 
+  <script src="/static/common.js?v=race6"></script>
   <script>
+    const handoff = DemoCommon.loadHandoff();
+    if (handoff) {
+      const labCard = document.getElementById("card-lab");
+      labCard.href = DemoCommon.labHrefFromHandoff(handoff);
+      document.getElementById("card-lab-cta").textContent =
+        "Continue linked package →";
+    }
+
     const lines = [
       "ERROR api-gateway upstream connection refused checkout-service:8080",
       "ERROR checkout-service dial tcp 10.0.2.15:5432: i/o timeout",
       "FATAL orders-db could not accept connections: too many clients",
-      "ERROR checkout-service failed to open database connection (attempt 2)",
-      "WARN  api-gateway retry budget exhausted route=/checkout",
-      "ERROR orders-db lock wait timeout on table checkout_sessions",
-      "ERROR checkout-service context canceled after 2000ms unary deadline",
-      "FATAL inventory-worker stream aborted: RST_STREAM protocol error",
-      "ERROR severity-agent deadline exceeded after 2.0s",
-      "WARN  runbook-agent partial match confidence=0.41",
+      "INTAKE coordinator observing incident signals",
+      "DEPLOY severity-agent scoring flag status",
+      "DEPLOY runbook-agent matching pit strategy",
+      "BOX package ready · race delivery over gRPC vs HTTP",
+      "WIRE gRPC unary package wall clock…",
+      "WIRE HTTP JSON package wall clock…",
     ];
     const root = document.getElementById("hub-logs");
+    const tag = document.getElementById("hub-race-tag");
     let i = 0;
+    let pace = 1400;
     function pushLog() {
       const row = document.createElement("div");
       row.className = "hub-log-line";
@@ -104,7 +142,32 @@
       while (root.children.length > 14) root.removeChild(root.firstChild);
     }
     for (let n = 0; n < 9; n += 1) pushLog();
-    setInterval(pushLog, 1400);
+    let logTimer = setInterval(pushLog, pace);
+
+    const lights = document.querySelector(".hub-race .start-lights");
+    const modes = ["", "warmup", "armed", "go"];
+    let m = 2;
+    setInterval(() => {
+      if (lights.matches(":hover")) return;
+      m = (m + 1) % modes.length;
+      lights.className = "start-lights mini " + (modes[m] || "");
+    }, 2200);
+
+    const race = document.getElementById("hub-race");
+    race.addEventListener("pointerenter", () => {
+      clearInterval(logTimer);
+      pace = 420;
+      logTimer = setInterval(pushLog, pace);
+      tag.textContent = "GRID HOT";
+      race.classList.add("hot");
+    });
+    race.addEventListener("pointerleave", () => {
+      clearInterval(logTimer);
+      pace = 1400;
+      logTimer = setInterval(pushLog, pace);
+      tag.textContent = "LIVE GRID";
+      race.classList.remove("hot");
+    });
   </script>
 </body>
 </html>
