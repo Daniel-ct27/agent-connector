@@ -147,6 +147,50 @@ def test_cloudflare_planner_reads_response_field() -> None:
     assert not decision.degraded
 
 
+
+def test_cloudflare_planner_reads_object_response_and_choices() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {
+                    "response": {
+                        "tools": ["analyze_logs"],
+                        "reason": "inspect logs",
+                    },
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": (
+                                    '{"tools":["analyze_logs"],'
+                                    '"reason":"inspect logs"}'
+                                ),
+                            }
+                        }
+                    ],
+                },
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport) as client:
+        planner = CloudflareWorkersAIPlanner(
+            account_id="acct",
+            api_token="token",
+            model="@cf/meta/llama-3.1-8b-instruct",
+            timeout_s=5.0,
+            transport=client,
+        )
+        decision = planner.decide(
+            _load_db_incident(),
+            PlannerContext(observation="demo", round_index=1),
+        )
+    assert decision.tools == ("analyze_logs",)
+    assert not decision.degraded
+
+
 def test_http_planner_rejects_non_object_json() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=["analyze_logs"])

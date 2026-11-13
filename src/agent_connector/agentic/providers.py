@@ -416,8 +416,32 @@ def _cloudflare_content(data: object) -> str:
     result = data.get("result", data)
     if isinstance(result, dict):
         response = result.get("response")
-        if isinstance(response, str):
+        # Older Workers AI: {"result":{"response":"<json string>"}}
+        # Newer chat completions: response may already be a parsed object,
+        # and/or live under choices[0].message.content.
+        if isinstance(response, str) and response.strip():
             return response
+        if isinstance(response, dict):
+            return json.dumps(response)
+        choices = result.get("choices")
+        if isinstance(choices, list) and choices:
+            first_choice = choices[0]
+            if isinstance(first_choice, dict):
+                message = first_choice.get("message") or {}
+                if isinstance(message, dict):
+                    content = message.get("content")
+                    if isinstance(content, str) and content.strip():
+                        return content
+                    if isinstance(content, list) and content:
+                        parts = [
+                            str(part.get("text", part))
+                            if isinstance(part, dict)
+                            else str(part)
+                            for part in content
+                        ]
+                        return "".join(parts)
+                if isinstance(message, str) and message.strip():
+                    return message
         message = result.get("message") or result.get("content")
         if isinstance(message, str):
             return message
