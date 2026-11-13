@@ -72,9 +72,6 @@
             </select>
           </label>
         </div>
-        <p class="hint" id="planner-help">
-          Offline rule coordinator — full desk coverage without a live model.
-        </p>
         <div class="controls" style="margin-top:0.75rem">
           <button class="primary live" id="agentic" type="button">Run incident response</button>
         </div>
@@ -88,19 +85,14 @@
         </div>
         <div class="progress-track" id="agentic-progress"><div class="progress-bar"></div></div>
         <ol id="agentic-timeline" class="ops-feed"></ol>
-        <p class="ops-empty" id="agentic-empty">
-          Waiting for dispatch. When the run starts, each agent action appears here
-          with engineer-facing findings.
-        </p>
+        <p class="ops-empty" id="agentic-empty">No active response yet.</p>
       </section>
     </div>
 
     <section class="helpdesk-solution reveal d3" id="helpdesk-solution">
-      <div class="helpdesk-kicker">Recommended for the on-call engineer</div>
-      <div class="helpdesk-title" id="helpdesk-title">Waiting for a remediation path…</div>
-      <ol class="helpdesk-actions" id="helpdesk-actions">
-        <li>Dispatch an incident to populate diagnosis, severity, and next actions.</li>
-      </ol>
+      <div class="helpdesk-kicker">Recommended actions</div>
+      <div class="helpdesk-title" id="helpdesk-title">No remediation yet</div>
+      <ol class="helpdesk-actions" id="helpdesk-actions"></ol>
     </section>
 
     <section class="ops-cards reveal d3">
@@ -141,13 +133,6 @@
     const reportEl = document.getElementById("report");
     const feed = document.getElementById("agentic-timeline");
     const empty = document.getElementById("agentic-empty");
-
-    const plannerHelp = {
-      deterministic: "Offline rule coordinator — full desk coverage without a live model.",
-      openai: "Live OpenAI-compatible coordinator for open-ended tool choice.",
-      cloudflare: "Live Workers AI coordinator for open-ended tool choice.",
-      http: "Custom HTTP coordinator endpoint for your own planner service.",
-    };
 
     const phaseLabel = {
       observe: "INTAKE",
@@ -198,10 +183,8 @@
         document.getElementById(id).classList.remove("hot", "miss");
       });
       document.getElementById("helpdesk-solution").classList.remove("ready");
-      document.getElementById("helpdesk-title").textContent =
-        "Waiting for a remediation path…";
-      document.getElementById("helpdesk-actions").innerHTML =
-        "<li>Dispatch an incident to populate diagnosis, severity, and next actions.</li>";
+      document.getElementById("helpdesk-title").textContent = "No remediation yet";
+      document.getElementById("helpdesk-actions").innerHTML = "";
     }
 
     function setHelpdeskActions(title, actions, confidence) {
@@ -399,10 +382,8 @@
     sourceEl.onchange = () =>
       syncSource(sourceEl, fixtureField, payloadField, payloadCustomField);
     document.getElementById("planner").onchange = () => {
-      const value = document.getElementById("planner").value;
-      document.getElementById("planner-help").textContent =
-        plannerHelp[value] || plannerHelp.deterministic;
-      document.getElementById("ops-planner").textContent = value;
+      document.getElementById("ops-planner").textContent =
+        document.getElementById("planner").value;
     };
 
     document.getElementById("agentic").onclick = async () => {

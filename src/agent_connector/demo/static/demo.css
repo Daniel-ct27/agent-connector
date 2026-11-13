@@ -150,8 +150,14 @@
     button.live {
       animation: pulse 1.6s infinite;
       background: var(--signal);
+      color: var(--ink);
       border-color: #a8c61f;
       font-weight: 700;
+    }
+    button.primary.live {
+      background: var(--signal);
+      color: var(--ink);
+      border-color: #a8c61f;
     }
     button.grpc { background: #dff3ea; border-color: #9dceb8; color: var(--grpc); font-weight: 600; }
     button.http { background: #f8e8d4; border-color: #e2bb84; color: var(--http); font-weight: 600; }
