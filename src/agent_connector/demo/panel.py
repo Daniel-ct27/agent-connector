@@ -11,7 +11,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -269,6 +269,28 @@ def create_demo_app() -> FastAPI:
             "report": wave["report"],
         }
 
+    def _agentic_payload(
+        *,
+        body: AgenticRequest,
+        request: IncidentRequest,
+        report: IncidentReport,
+        steps: list[dict],
+        latency_ms: float,
+    ) -> dict:
+        return {
+            "transport": "agentic",
+            "planner": report.agentic_mode or body.planner,
+            "source": body.source,
+            "fixture": body.fixture if body.source == "fixture" else None,
+            "payload_size": len(request.logs),
+            "latency_ms": round(latency_ms, 3),
+            "partial": report.partial,
+            "planner_degraded": report.planner_degraded,
+            "planner_error": report.planner_error,
+            "steps": steps,
+            "report": report.model_dump(mode="json"),
+        }
+
     @app.post("/api/agentic")
     async def agentic(body: AgenticRequest) -> dict:
         """Run the observe→decide→act response path and return a step timeline."""
@@ -298,19 +320,75 @@ def create_demo_app() -> FastAPI:
                 detail="agentic run failed",
             ) from error
         latency_ms = (time.perf_counter() - started) * 1000.0
-        return {
-            "transport": "agentic",
-            "planner": report.agentic_mode or body.planner,
-            "source": body.source,
-            "fixture": body.fixture if body.source == "fixture" else None,
-            "payload_size": len(request.logs),
-            "latency_ms": round(latency_ms, 3),
-            "partial": report.partial,
-            "planner_degraded": report.planner_degraded,
-            "planner_error": report.planner_error,
-            "steps": steps,
-            "report": report.model_dump(mode="json"),
-        }
+        return _agentic_payload(
+            body=body,
+            request=request,
+            report=report,
+            steps=steps,
+            latency_ms=latency_ms,
+        )
+
+    @app.post("/api/agentic/stream")
+    async def agentic_stream(body: AgenticRequest) -> StreamingResponse:
+        """Stream NDJSON events as the agentic loop observes, decides, and acts."""
+        request = _resolve_request(
+            source=body.source,
+            fixture=body.fixture,
+            payload_size=body.payload_size,
+        )
+        queue: asyncio.Queue[tuple[str, dict]] = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+        started = time.perf_counter()
+
+        def on_step(step: AgenticStep) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                ("step", step.model_dump(mode="json")),
+            )
+
+        async def runner() -> None:
+            try:
+                report = await asyncio.to_thread(
+                    run_agentic,
+                    request,
+                    planner=body.planner,
+                    on_step=on_step,
+                )
+                latency_ms = (time.perf_counter() - started) * 1000.0
+                await queue.put(
+                    (
+                        "done",
+                        _agentic_payload(
+                            body=body,
+                            request=request,
+                            report=report,
+                            steps=[
+                                step.model_dump(mode="json")
+                                for step in report.agentic_steps
+                            ],
+                            latency_ms=latency_ms,
+                        ),
+                    )
+                )
+            except AnalyzerConfigError as error:
+                await queue.put(("error", {"detail": str(error), "status": 400}))
+            except Exception:
+                await queue.put(
+                    ("error", {"detail": "agentic run failed", "status": 500})
+                )
+
+        async def event_gen():
+            task = asyncio.create_task(runner())
+            try:
+                while True:
+                    kind, payload = await queue.get()
+                    yield json.dumps({"event": kind, "data": payload}) + "\n"
+                    if kind in ("done", "error"):
+                        break
+            finally:
+                await task
+
+        return StreamingResponse(event_gen(), media_type="application/x-ndjson")
 
     @app.post("/api/compare")
     async def compare(body: WorkloadRequest) -> dict:
