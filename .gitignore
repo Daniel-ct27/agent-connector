@@ -1,6 +1,10 @@
 # Local / working notes
 docs/
 
+# Local scratch (deck screenshots, unrelated outputs) — keep out of main
+.deck-build/
+output/
+
 # Runtime orchestrator logs
 logs/
 
