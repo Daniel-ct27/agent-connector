@@ -28,12 +28,12 @@ def test_demo_panel_index_and_fixtures() -> None:
     index = client.get("/")
     assert index.status_code == 200
     assert "Agent Connector" in index.text
-    assert "chart.js" in index.text.lower()
-    assert "Scored evidence" in index.text
-    assert "chart-live" in index.text
-    assert "grouped bars" in index.text
-    assert "#cfef3a" in index.text
-    assert "Agent<br />Connector" in index.text
+    assert 'href="/response"' in index.text
+    assert 'href="/lab"' in index.text
+    delivery = client.get("/lab")
+    assert delivery.status_code == 200
+    assert "chart.js" in delivery.text.lower()
+    assert 'id="chart-live"' in delivery.text
     fixtures = client.get("/api/fixtures")
     assert fixtures.status_code == 200
     assert "inc-db-001.json" in fixtures.json()["fixtures"]

@@ -1,17 +1,44 @@
 # Agent Connector
 
-Turn a batch of incident logs into a severity score, likely cause, and
-runbook — then compare how fast that same result arrives over **gRPC** vs
-**HTTP/JSON**.
+Agent Connector is a local incident triage demo and protocol benchmark. It
+takes a batch of service logs and produces a report with a severity score,
+likely cause, and recommended runbook. It also measures how long the same
+incident workload takes over **gRPC** and **HTTP/JSON**.
 
-You do not need API keys for the default path.
+## Highlights
+
+- **Package** builds the incident report in one process and shows which tools
+  the planner called and what evidence they found.
+- **Delivery** runs the same workload through local gRPC and HTTP services and
+  displays side-by-side timings. A separate gRPC streaming run shows how soon
+  the first result arrives.
+- **Sample workloads** cover a database connection failure, a payment retry
+  storm, and an expired TLS certificate. You can also generate logs at
+  different sizes to explore how payload size affects timing.
+
+## Deterministic mode and optional AI
+
+The demo starts in **deterministic mode**, which uses built-in rules and
+requires no model or API keys. The planner decides which tools to call, and
+the tools score severity from signals such as error counts and affected
+services, match log patterns to known causes, and recommend an existing
+runbook. The same logs and settings produce the same findings. Measured
+timings can vary.
+
+[Cloudflare Workers AI](#optional-use-cloudflare-workers-ai) can take over
+the planning step on the Package page. The local tools still build the report.
 
 ## Quick start
 
-### 1. Requirements
+### 1. Get the code
 
-- Python **3.11+**
-- A terminal in this repo folder
+Install Git and Python **3.11+**. You’ll need internet access to clone the
+repository and install dependencies. Run these commands in a terminal:
+
+```text
+git clone https://github.com/Daniel-ct27/agent-connector.git
+cd agent-connector
+```
 
 ### 2. Install (one time)
 
@@ -19,29 +46,41 @@ You do not need API keys for the default path.
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e .
 ```
 
 **macOS / Linux**
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
+.venv/bin/python -m pip install -e .
 ```
-
-Keep the venv activated for the steps below (`(.venv)` in your prompt).
 
 ### 3. Run the demo
 
+**Windows PowerShell**
+
 ```powershell
-agent-connector-demo
+.\.venv\Scripts\agent-connector-demo.exe
 ```
 
-Open **http://127.0.0.1:8090**
+**macOS / Linux**
+
+```bash
+.venv/bin/agent-connector-demo
+```
+
+Open **http://127.0.0.1:8090** in your browser. On **Package**, set
+**Strategist** to **deterministic (offline)**, select `inc-db-001.json` under
+**Fixture**, and click **Drop the flag**. Expect **MEDIUM (37/100)**, a database
+connection failure on `orders-db`, and a database runbook.
 
 Stop the demo with `Ctrl+C` in that terminal.
+
+For the optional terminal commands below, activate the virtual environment
+with `.\.venv\Scripts\Activate.ps1` in PowerShell or `source .venv/bin/activate`
+in Bash or Zsh. If PowerShell blocks activation, run the command by its full
+path in `.venv\Scripts`, as shown above.
 
 ## How to use the UI
 
@@ -55,7 +94,7 @@ Landing page. Pick **Package** or **Delivery**.
 
 Builds the agent result in-process (severity + cause + runbook).
 
-1. Leave **planner** on `deterministic` (no API keys).
+1. Leave **Strategist** on **deterministic (offline)**.
 2. Pick a saved fixture (e.g. `inc-db-001.json`) or generated logs.
 3. Run / drop the flag.
 4. Watch the observe → decide → act steps, then the result cards.
@@ -63,7 +102,8 @@ Builds the agent result in-process (severity + cause + runbook).
 
 ### 2 · Delivery (`/lab`) — starts local agent processes
 
-Times the same workload on gRPC vs HTTP.
+Times the same workload on gRPC vs HTTP. The page loads its chart library
+from a CDN.
 
 1. Click **Arm gRPC** and **Arm HTTP** (starts the six local agent servers).
 2. Wait until the garage shows open / ready (not closed).
@@ -133,28 +173,62 @@ python -m agent_connector.servers.http_log_analysis
 | gRPC | `127.0.0.1:50051` | `127.0.0.1:50052` | `127.0.0.1:50053` |
 | HTTP | `http://127.0.0.1:8001` | `http://127.0.0.1:8002` | `http://127.0.0.1:8003` |
 
-## Optional: LLM features
+## Optional: use Cloudflare Workers AI
 
-Default mode is deterministic (offline). For OpenAI log summarizer or planners:
+Cloudflare Workers AI can choose which local tools to call on the **Package**
+page. The tools still use built-in rules to analyze logs, score severity, and
+match runbooks. Delivery uses the deterministic analyzer by default.
+
+After completing the quick start, stop the running demo with `Ctrl+C`. Have
+your Cloudflare account ID and an API token authorized to run Workers AI on
+that account ready. Enter them in the terminal that starts the demo. The base
+installation includes the dependencies for the Cloudflare planner.
+
+**Windows PowerShell**
 
 ```powershell
-python -m pip install -e ".[llm]"
+$env:CLOUDFLARE_ACCOUNT_ID = Read-Host "Cloudflare account ID"
+$token = Read-Host "Cloudflare API token" -AsSecureString
+$env:CLOUDFLARE_API_TOKEN = [System.Net.NetworkCredential]::new('', $token).Password
+.\.venv\Scripts\agent-connector-demo.exe
 ```
 
-| Feature | Env |
-|---|---|
-| OpenAI log analyzer | `AGENT_CONNECTOR_ANALYZER=openai` + `OPENAI_API_KEY` |
-| OpenAI planner | `--planner openai` + `OPENAI_API_KEY` |
-| Cloudflare planner | `--planner cloudflare` + `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` |
+**macOS / Linux**
 
-Set analyzer env vars **before** Arm / starting Log Analysis servers. For timed races, keep the deterministic analyzer.
+```bash
+read -r -p 'Cloudflare account ID: ' CLOUDFLARE_ACCOUNT_ID
+read -rs -p 'Cloudflare API token: ' CLOUDFLARE_API_TOKEN
+printf '\n'
+export CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN
+.venv/bin/agent-connector-demo
+```
+
+Open **Package**, set **Strategist** to **cloudflare Workers AI**, select
+`inc-db-001.json`, and click **Drop the flag**. If the run shows **degraded**,
+check the step feed for the provider error and the deterministic fallback.
+
+To try the same planner in the CLI, use a terminal with the virtual
+environment active and both Cloudflare variables set:
+
+```text
+agent-connector --transport agentic --planner cloudflare --no-jsonl scenarios/fixtures/inc-db-001.json
+```
 
 ## Optional: benchmarks and tests
 
-Start all six agents first (UI Arm or manual terminals).
+Install the development dependencies with `python -m pip install -e ".[dev]"`
+in the active virtual environment.
+
+For the benchmark, start all six agents first with the Delivery **Arm** buttons
+or the manual commands above.
 
 ```powershell
 agent-connector-benchmark --payload-sizes 100 --concurrency 1 --warmup 0 --trials 2 --summarize
+```
+
+Run the tests separately. The integration tests start their own services.
+
+```powershell
 python -m pytest -q
 ```
 
